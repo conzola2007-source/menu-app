@@ -1,0 +1,104 @@
+import { Crown, User } from 'lucide-react';
+
+interface Member {
+  id: string;
+  user_id: string;
+  role: 'owner' | 'member';
+  joined_at: string;
+  profile: {
+    display_name: string;
+    avatar_url: string | null;
+  };
+}
+
+interface MemberListProps {
+  members: Member[];
+  currentUserId: string | null;
+  /** If true, show action buttons per member (role-gated). Not used in Phase 3 — wired in Phase 5+ */
+  showActions?: boolean;
+}
+
+function Avatar({ name, size = 'md' }: { name: string; size?: 'sm' | 'md' | 'lg' }) {
+  const initials = name
+    .split(' ')
+    .map((w) => w[0])
+    .slice(0, 2)
+    .join('')
+    .toUpperCase();
+
+  const sizeClass =
+    size === 'sm' ? 'h-8 w-8 text-xs' :
+    size === 'lg' ? 'h-20 w-20 text-2xl' :
+    'h-10 w-10 text-sm';
+
+  // Deterministic colour from name
+  const colours = [
+    'bg-emerald-500', 'bg-blue-500', 'bg-amber-500', 'bg-rose-500',
+    'bg-violet-500', 'bg-cyan-500', 'bg-orange-500', 'bg-pink-500',
+  ];
+  const colorIndex =
+    name.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0) % colours.length;
+
+  return (
+    <div
+      className={`flex shrink-0 items-center justify-center rounded-full font-bold text-white ${sizeClass} ${colours[colorIndex]}`}
+    >
+      {initials || <User className="h-4 w-4" />}
+    </div>
+  );
+}
+
+function formatJoinDate(dateStr: string) {
+  return new Date(dateStr).toLocaleDateString(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  });
+}
+
+export function MemberList({ members, currentUserId }: MemberListProps) {
+  // Owner always first
+  const sorted = [...members].sort((a, b) => {
+    if (a.role === 'owner' && b.role !== 'owner') return -1;
+    if (b.role === 'owner' && a.role !== 'owner') return 1;
+    return a.profile.display_name.localeCompare(b.profile.display_name);
+  });
+
+  return (
+    <ul className="flex flex-col divide-y divide-slate-800">
+      {sorted.map((member) => (
+        <li key={member.id} className="flex items-center gap-3 py-3">
+          <Avatar name={member.profile.display_name} />
+
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <span className="truncate text-sm font-medium text-white">
+                {member.profile.display_name}
+              </span>
+              {member.user_id === currentUserId && (
+                <span className="rounded-full bg-slate-700 px-1.5 py-0.5 text-xs text-slate-400">
+                  you
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-slate-500">Joined {formatJoinDate(member.joined_at)}</p>
+          </div>
+
+          {/* Role badge */}
+          {member.role === 'owner' ? (
+            <span className="flex items-center gap-1 rounded-full bg-amber-500/20 px-2.5 py-1 text-xs font-medium text-amber-300">
+              <Crown className="h-3 w-3" />
+              Owner
+            </span>
+          ) : (
+            <span className="rounded-full bg-slate-700 px-2.5 py-1 text-xs text-slate-400">
+              Member
+            </span>
+          )}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+export { Avatar };

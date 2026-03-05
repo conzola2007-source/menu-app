@@ -1,0 +1,242 @@
+'use client';
+
+import { useState } from 'react';
+import { useParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { ArrowLeft, Pencil, Clock, ChefHat, Users, AlertTriangle } from 'lucide-react';
+import { useRecipeDetail } from '@/hooks/useRecipes';
+import { useHousehold } from '@/hooks/useHousehold';
+import { useAuthStore } from '@/stores/authStore';
+import { formatQuantity } from '@/lib/utils';
+import { CUISINE_LABELS, STORAGE_LABELS } from '@/lib/recipe-constants';
+
+export default function RecipeDetailPage() {
+  const { id } = useParams<{ id: string }>();
+  const router = useRouter();
+  const user = useAuthStore((s) => s.user);
+  const { data: membership } = useHousehold();
+  const householdId = (membership as unknown as { household?: { id: string } } | null)?.household?.id;
+
+  const { data: recipe, isLoading, error } = useRecipeDetail(id ?? null);
+
+  // Servings scaler
+  const [scaledServings, setScaledServings] = useState<number | null>(null);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-slate-900 pb-24">
+        {/* Header skeleton */}
+        <div className="animate-pulse">
+          <div className="h-48 bg-slate-700" />
+          <div className="p-4">
+            <div className="h-6 w-3/4 rounded bg-slate-700" />
+            <div className="mt-2 h-4 w-1/2 rounded bg-slate-700" />
+            <div className="mt-4 h-4 rounded bg-slate-700" />
+            <div className="mt-2 h-4 w-5/6 rounded bg-slate-700" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !recipe) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-slate-900 p-6">
+        <span className="text-4xl">😕</span>
+        <p className="text-white">Recipe not found.</p>
+        <button
+          type="button"
+          onClick={() => router.back()}
+          className="text-sm text-primary hover:underline"
+        >
+          Go back
+        </button>
+      </div>
+    );
+  }
+
+  const baseServings = recipe.servings;
+  const displayServings = scaledServings ?? baseServings;
+  const scaleFactor = displayServings / baseServings;
+
+  const canEdit =
+    !recipe.is_global &&
+    recipe.household_id === householdId &&
+    !!user;
+
+  const totalTime = recipe.prep_time_min + recipe.cook_time_min;
+
+  return (
+    <div className="min-h-screen bg-slate-900 pb-24">
+      {/* Hero */}
+      <div
+        className="relative flex h-48 items-center justify-center text-6xl"
+        style={{ backgroundColor: recipe.bg_color }}
+      >
+        {recipe.emoji}
+
+        {/* Back button */}
+        <button
+          type="button"
+          onClick={() => router.back()}
+          className="absolute left-4 top-4 flex h-9 w-9 items-center justify-center rounded-full bg-black/30 text-white backdrop-blur-sm"
+          aria-label="Go back"
+        >
+          <ArrowLeft className="h-5 w-5" />
+        </button>
+
+        {/* Edit button */}
+        {canEdit && (
+          <Link
+            href={`/recipes/${recipe.id}/edit`}
+            className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full bg-black/30 text-white backdrop-blur-sm"
+            aria-label="Edit recipe"
+          >
+            <Pencil className="h-4 w-4" />
+          </Link>
+        )}
+      </div>
+
+      <div className="px-4 pt-4">
+        {/* Title + cuisine */}
+        <div className="flex items-start justify-between gap-2">
+          <h1 className="text-2xl font-bold text-white">{recipe.title}</h1>
+          <span className="mt-1 shrink-0 rounded-full bg-slate-700 px-2.5 py-0.5 text-xs text-slate-300">
+            {CUISINE_LABELS[recipe.cuisine] ?? recipe.cuisine}
+          </span>
+        </div>
+
+        {recipe.description && (
+          <p className="mt-2 text-sm leading-relaxed text-slate-400">{recipe.description}</p>
+        )}
+
+        {/* Stats row */}
+        <div className="mt-4 flex flex-wrap gap-4 text-sm text-slate-300">
+          {recipe.prep_time_min > 0 && (
+            <div className="flex items-center gap-1.5">
+              <Clock className="h-4 w-4 text-slate-400" />
+              <span>Prep: {recipe.prep_time_min}m</span>
+            </div>
+          )}
+          {recipe.cook_time_min > 0 && (
+            <div className="flex items-center gap-1.5">
+              <ChefHat className="h-4 w-4 text-slate-400" />
+              <span>Cook: {recipe.cook_time_min}m</span>
+            </div>
+          )}
+          {totalTime > 0 && (
+            <div className="flex items-center gap-1.5 font-medium text-white">
+              <span>Total: {totalTime}m</span>
+            </div>
+          )}
+        </div>
+
+        {/* Advance prep banner */}
+        {recipe.advance_prep_days > 0 && (
+          <div className="mt-4 flex items-start gap-2 rounded-xl bg-amber-500/10 px-3 py-2.5 text-sm text-amber-300">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+            <div>
+              <span className="font-medium">
+                Needs {recipe.advance_prep_days} day{recipe.advance_prep_days > 1 ? 's' : ''} advance prep
+              </span>
+              {recipe.advance_prep_note && (
+                <p className="mt-0.5 text-amber-400/80">{recipe.advance_prep_note}</p>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Servings scaler */}
+        {recipe.ingredients.length > 0 && (
+          <div className="mt-5 flex items-center gap-3 rounded-xl border border-slate-700 bg-slate-800 px-4 py-3">
+            <Users className="h-4 w-4 shrink-0 text-slate-400" />
+            <span className="text-sm text-slate-300">Servings</span>
+            <div className="ml-auto flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setScaledServings(Math.max(1, displayServings - 1))}
+                className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-700 text-white hover:bg-slate-600"
+                aria-label="Decrease servings"
+              >
+                −
+              </button>
+              <span className="min-w-[2rem] text-center text-sm font-medium text-white">
+                {displayServings}
+              </span>
+              <button
+                type="button"
+                onClick={() => setScaledServings(Math.min(20, displayServings + 1))}
+                className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-700 text-white hover:bg-slate-600"
+                aria-label="Increase servings"
+              >
+                +
+              </button>
+            </div>
+            {scaleFactor !== 1 && (
+              <button
+                type="button"
+                onClick={() => setScaledServings(null)}
+                className="ml-2 text-xs text-slate-500 hover:text-slate-300"
+              >
+                reset
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Ingredients */}
+        {recipe.ingredients.length > 0 && (
+          <section className="mt-6">
+            <h2 className="mb-3 text-base font-semibold text-white">Ingredients</h2>
+            <ul className="flex flex-col divide-y divide-slate-800">
+              {recipe.ingredients.map((ing) => (
+                <li key={ing.id} className="flex items-center justify-between py-2.5">
+                  <span className="text-sm text-white">{ing.name}</span>
+                  <div className="flex items-center gap-2 text-sm text-slate-400">
+                    <span>
+                      {formatQuantity(ing.amount, scaleFactor)} {ing.unit}
+                    </span>
+                    <span
+                      className="rounded bg-slate-800 px-1.5 py-0.5 text-xs"
+                      title={`Stored in: ${STORAGE_LABELS[ing.storage_location]}`}
+                    >
+                      {ing.storage_location === 'fridge'
+                        ? '❄️'
+                        : ing.storage_location === 'freezer'
+                        ? '🧊'
+                        : ing.storage_location === 'pantry'
+                        ? '🥫'
+                        : '📦'}
+                    </span>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
+        {/* Steps */}
+        {recipe.steps.length > 0 && (
+          <section className="mt-6">
+            <h2 className="mb-3 text-base font-semibold text-white">Steps</h2>
+            <ol className="flex flex-col gap-4">
+              {recipe.steps.map((step, i) => (
+                <li key={step.id} className="flex gap-3">
+                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-white">
+                    {i + 1}
+                  </span>
+                  <p className="text-sm leading-relaxed text-slate-300">{step.instruction}</p>
+                </li>
+              ))}
+            </ol>
+          </section>
+        )}
+
+        {/* Source badge */}
+        <div className="mt-8 text-xs text-slate-600">
+          {recipe.is_global ? '🌐 Global recipe' : '🏠 Household recipe'}
+        </div>
+      </div>
+    </div>
+  );
+}
