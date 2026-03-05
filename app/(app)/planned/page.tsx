@@ -7,18 +7,24 @@ import { useVoteData } from '@/hooks/useVotes';
 import { useHousehold } from '@/hooks/useHousehold';
 import { useAuthStore } from '@/stores/authStore';
 import { weekStartISO } from '@/lib/utils';
-import type { MealType } from '@/lib/supabase/types';
 import type { MealPlanSlot } from '@/hooks/useMealPlan';
 import type { VoteType } from '@/lib/supabase/types';
 import type { VoteRecipe } from '@/hooks/useVotes';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function todayIndex(): number {
-  return (new Date().getDay() + 6) % 7;
+const DAY_NAMES_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+function toLocalISODate(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
 }
 
-const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+function todayISO(): string {
+  return toLocalISODate(new Date());
+}
 
 // ─── Vote tally helpers ───────────────────────────────────────────────────────
 
@@ -52,7 +58,6 @@ function SlotTile({ slot }: { slot: MealPlanSlot }) {
         {slot.recipe.emoji}
       </div>
       <p className="flex-1 truncate text-sm font-medium text-white">{slot.recipe.title}</p>
-      <span className="text-xs capitalize text-slate-500">{slot.meal_type}</span>
     </Link>
   );
 }
@@ -240,15 +245,20 @@ function StateAllVoted({
 
 function StateMealPlan({
   slots,
-  slotsByDay,
   finalized,
-  today,
 }: {
   slots: MealPlanSlot[];
-  slotsByDay: Record<number, Partial<Record<MealType, MealPlanSlot>>>;
   finalized: boolean;
-  today: number;
 }) {
+  const today = todayISO();
+
+  // Sort slots by date; put today first
+  const sortedSlots = [...slots].sort((a, b) => {
+    if (a.slot_date === today) return -1;
+    if (b.slot_date === today) return 1;
+    return a.slot_date.localeCompare(b.slot_date);
+  });
+
   return (
     <div className="flex flex-col gap-4">
       {/* Header action */}
@@ -282,49 +292,32 @@ function StateMealPlan({
 
       {/* Day-by-day view */}
       <div className="flex flex-col gap-3">
-        {/* Today first */}
-        {(() => {
-          const todaySlots = slotsByDay[today] ?? {};
-          const hasTodaySlots = Object.keys(todaySlots).length > 0;
+        {sortedSlots.map((slot) => {
+          const isToday = slot.slot_date === today;
+          const date = new Date(slot.slot_date + 'T00:00:00');
+          const dayName = DAY_NAMES_SHORT[date.getDay()];
+          const dateLabel = date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+
           return (
-            <div className="rounded-2xl border border-primary/30 bg-primary/5 p-3">
+            <div
+              key={slot.id}
+              className={`rounded-2xl border p-3 ${
+                isToday ? 'border-primary/30 bg-primary/5' : 'border-slate-800 bg-slate-900'
+              }`}
+            >
               <div className="mb-2 flex items-center gap-2">
-                <span className="text-sm font-bold text-primary">{DAY_NAMES[today]}</span>
-                <span className="rounded-full bg-primary/20 px-2 py-0.5 text-xs text-primary">Today</span>
+                <span className={`text-sm font-semibold ${isToday ? 'text-primary' : 'text-slate-300'}`}>
+                  {dayName}
+                </span>
+                <span className={`text-xs ${isToday ? 'text-primary/70' : 'text-slate-600'}`}>{dateLabel}</span>
+                {isToday && (
+                  <span className="rounded-full bg-primary/20 px-2 py-0.5 text-xs text-primary">Today</span>
+                )}
               </div>
-              {hasTodaySlots ? (
-                <div className="flex flex-col gap-1.5">
-                  {Object.values(todaySlots).map((slot) =>
-                    slot ? <SlotTile key={slot.id} slot={slot} /> : null
-                  )}
-                </div>
-              ) : (
-                <p className="text-xs italic text-slate-600">Nothing planned</p>
-              )}
+              <SlotTile slot={slot} />
             </div>
           );
-        })()}
-
-        {/* Rest of week */}
-        {Array.from({ length: 7 }, (_, i) => i)
-          .filter((i) => i !== today)
-          .map((dayIndex) => {
-            const daySlots = slotsByDay[dayIndex] ?? {};
-            const hasSlots = Object.keys(daySlots).length > 0;
-            if (!hasSlots) return null;
-            return (
-              <div key={dayIndex} className="rounded-2xl border border-slate-800 bg-slate-900 p-3">
-                <div className="mb-2">
-                  <span className="text-sm font-semibold text-slate-300">{DAY_NAMES[dayIndex]}</span>
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  {Object.values(daySlots).map((slot) =>
-                    slot ? <SlotTile key={slot.id} slot={slot} /> : null
-                  )}
-                </div>
-              </div>
-            );
-          })}
+        })}
 
         {slots.length === 0 && (
           <div className="rounded-xl border border-dashed border-slate-700 p-6 text-center">
@@ -349,7 +342,6 @@ export default function PlannedPage() {
   const { data: planData, isLoading: planLoading } = useMealPlan();
   const { data: voteData, isLoading: voteLoading } = useVoteData();
 
-  const today = todayIndex();
   const weekStart = weekStartISO();
   const isLoading = planLoading || voteLoading;
 
@@ -440,9 +432,7 @@ export default function PlannedPage() {
         {state === 'has-plan' && planData && (
           <StateMealPlan
             slots={planData.slots}
-            slotsByDay={planData.slotsByDay}
             finalized={isFinalized}
-            today={today}
           />
         )}
       </div>

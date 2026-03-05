@@ -3,20 +3,14 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { CheckCircle2, AlertCircle, X } from 'lucide-react';
-import { useMealPlan, useAddSlot, useRemoveSlot, useMoveSlot, useFinalizeWeek } from '@/hooks/useMealPlan';
+import { CheckCircle2, X, ChevronLeft, CalendarDays } from 'lucide-react';
+import { useMealPlan, useAddSlot, useRemoveSlot, useFinalizeWeek, useUpdatePlanDuration } from '@/hooks/useMealPlan';
 import { useRecipes } from '@/hooks/useRecipes';
 import { useHousehold } from '@/hooks/useHousehold';
 import { weekStartISO } from '@/lib/utils';
-import { WeekCalendar } from '@/components/plan/WeekCalendar';
+import { DayCountPicker } from '@/components/plan/DayCountPicker';
+import { CalendarGrid } from '@/components/plan/CalendarGrid';
 import type { SlotRecipe } from '@/hooks/useMealPlan';
-import type { MealType } from '@/lib/supabase/types';
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function todayIndex(): number {
-  return (new Date().getDay() + 6) % 7;
-}
 
 // ─── Toast ────────────────────────────────────────────────────────────────────
 
@@ -35,11 +29,22 @@ export default function PlanPage() {
 
   const addSlot = useAddSlot();
   const removeSlot = useRemoveSlot();
-  const moveSlot = useMoveSlot();
   const finalizeWeek = useFinalizeWeek();
+  const updateDuration = useUpdatePlanDuration();
 
   const [toast, setToast] = useState<ToastState | null>(null);
   const [finalizing, setFinalizing] = useState(false);
+  // Local duration state — syncs from plan data once loaded
+  const [durationDays, setDurationDays] = useState(7);
+  const [durationConfirmed, setDurationConfirmed] = useState(false);
+
+  // Sync duration from loaded plan
+  useEffect(() => {
+    if (planData?.plan?.duration_days) {
+      setDurationDays(planData.plan.duration_days);
+      setDurationConfirmed(true);
+    }
+  }, [planData?.plan?.duration_days]);
 
   // Auto-clear toast
   useEffect(() => {
@@ -52,7 +57,7 @@ export default function PlanPage() {
     setToast({ message, type });
   }, []);
 
-  // Build shortlist: all recipes formatted as SlotRecipe for dragging
+  // Build recipe shortlist
   const shortlist: SlotRecipe[] = recipes.map((r) => ({
     id: r.id,
     title: r.title,
@@ -64,37 +69,15 @@ export default function PlanPage() {
   // ── Handlers ──────────────────────────────────────────────────────────────
 
   const handleAddSlot = useCallback(
-    ({
-      recipeId,
-      dayOfWeek,
-      mealType,
-      recipe,
-    }: {
-      recipeId: string;
-      dayOfWeek: number;
-      mealType: MealType;
-      recipe: SlotRecipe;
-    }) => {
+    (slotDate: string, recipeId: string) => {
+      const recipe = shortlist.find((r) => r.id === recipeId);
+      if (!recipe) return;
       addSlot.mutate(
-        { recipeId, dayOfWeek, mealType, recipe },
-        {
-          onError: () => showToast('Failed to add recipe to plan. Please try again.', 'error'),
-        },
+        { recipeId, slotDate, recipe },
+        { onError: () => showToast('Failed to add recipe. Please try again.', 'error') },
       );
     },
-    [addSlot, showToast],
-  );
-
-  const handleMoveSlot = useCallback(
-    ({ slotId, newDayOfWeek, newMealType }: { slotId: string; newDayOfWeek: number; newMealType: MealType }) => {
-      moveSlot.mutate(
-        { slotId, newDayOfWeek, newMealType },
-        {
-          onError: () => showToast('Failed to move recipe. Please try again.', 'error'),
-        },
-      );
-    },
-    [moveSlot, showToast],
+    [addSlot, shortlist, showToast],
   );
 
   const handleRemoveSlot = useCallback(
@@ -106,10 +89,18 @@ export default function PlanPage() {
     [removeSlot, showToast],
   );
 
+  function handleDurationConfirm() {
+    setDurationConfirmed(true);
+    updateDuration.mutate(
+      { durationDays },
+      { onError: () => showToast('Failed to save duration.', 'error') },
+    );
+  }
+
   async function handleFinalize() {
     if (!planData?.plan) return;
     if (planData.slots.length === 0) {
-      showToast('Add at least one meal before finalizing.', 'error');
+      showToast('Add at least one meal before generating the grocery list.', 'error');
       return;
     }
     setFinalizing(true);
@@ -126,6 +117,7 @@ export default function PlanPage() {
   const isLoading = householdLoading || planLoading || recipesLoading;
   const weekStart = planData?.weekStart ?? weekStartISO();
   const isFinalized = !!planData?.plan?.finalized_at;
+  const startDate = planData?.plan?.start_date ?? weekStart;
 
   // ── Loading ────────────────────────────────────────────────────────────────
   if (isLoading) {
@@ -133,10 +125,8 @@ export default function PlanPage() {
       <div className="min-h-screen bg-slate-900 pb-24 px-4 pt-4">
         <div className="animate-pulse space-y-4">
           <div className="h-10 rounded-xl bg-slate-800" />
-          <div className="h-16 rounded-xl bg-slate-800" />
-          {Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="h-36 rounded-2xl bg-slate-800" />
-          ))}
+          <div className="h-48 rounded-2xl bg-slate-800" />
+          <div className="h-48 rounded-2xl bg-slate-800" />
         </div>
       </div>
     );
@@ -148,10 +138,7 @@ export default function PlanPage() {
       <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-slate-900 p-6 text-center">
         <span className="text-5xl">🏠</span>
         <p className="font-medium text-white">You&apos;re not in a household yet</p>
-        <Link
-          href="/household/create"
-          className="rounded-full bg-primary px-4 py-2 text-sm font-medium text-white"
-        >
+        <Link href="/household/create" className="rounded-full bg-primary px-4 py-2 text-sm font-medium text-white">
           Create household
         </Link>
       </div>
@@ -162,17 +149,13 @@ export default function PlanPage() {
   if (recipes.length === 0) {
     return (
       <div className="flex min-h-screen flex-col bg-slate-900 pb-24">
-        <div className="border-b border-slate-800 px-4 py-3">
+        <header className="border-b border-slate-800 px-4 py-3">
           <h1 className="text-lg font-bold text-white">Meal Plan</h1>
-        </div>
+        </header>
         <div className="flex flex-1 flex-col items-center justify-center gap-4 p-6 text-center">
           <span className="text-5xl">🍽️</span>
           <p className="font-medium text-white">No recipes to plan with</p>
-          <p className="text-sm text-slate-400">Add some recipes first.</p>
-          <Link
-            href="/recipes/new"
-            className="mt-2 rounded-full bg-primary px-4 py-2 text-sm font-medium text-white"
-          >
+          <Link href="/recipes/new" className="mt-2 rounded-full bg-primary px-4 py-2 text-sm font-medium text-white">
             Add a recipe
           </Link>
         </div>
@@ -180,20 +163,57 @@ export default function PlanPage() {
     );
   }
 
+  // ── Step 1: Pick duration (if no plan yet and not confirmed) ──────────────
+  if (!durationConfirmed) {
+    return (
+      <div className="flex min-h-screen flex-col bg-slate-900 pb-24">
+        {/* Header */}
+        <header className="flex items-center gap-3 border-b border-slate-800 px-4 py-3">
+          <button type="button" onClick={() => router.back()} className="text-slate-400 hover:text-white">
+            <ChevronLeft className="h-5 w-5" />
+          </button>
+          <h1 className="text-base font-bold text-white">Allocate meals</h1>
+        </header>
+
+        <div className="flex flex-1 flex-col items-center justify-center gap-8 px-6 pb-12">
+          <div className="text-center">
+            <div className="mb-2 text-4xl">📅</div>
+            <h2 className="text-lg font-bold text-white">How many days?</h2>
+            <p className="mt-1 text-sm text-slate-400">Choose how many dinners to plan for</p>
+          </div>
+
+          <DayCountPicker value={durationDays} onChange={setDurationDays} />
+
+          <button
+            type="button"
+            onClick={handleDurationConfirm}
+            className="w-full max-w-xs rounded-2xl bg-primary px-6 py-3 text-sm font-semibold text-white"
+          >
+            Set up {durationDays}-day plan →
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Step 2: Calendar grid ─────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-slate-900 pb-32">
-      {/* ── Header ─────────────────────────────────────────────────────────── */}
+      {/* Header */}
       <div className="sticky top-0 z-20 border-b border-slate-800 bg-slate-900/95 px-4 py-3 backdrop-blur">
         <div className="flex items-center justify-between gap-3">
-          <div>
-            <h1 className="text-base font-bold text-white">Meal Plan</h1>
-            <p className="text-xs text-slate-500">
-              Week of{' '}
-              {new Date(weekStart + 'T00:00:00').toLocaleDateString(undefined, {
-                month: 'short',
-                day: 'numeric',
-              })}
-            </p>
+          <div className="flex items-center gap-2">
+            <button type="button" onClick={() => setDurationConfirmed(false)} className="text-slate-400 hover:text-white">
+              <ChevronLeft className="h-5 w-5" />
+            </button>
+            <div>
+              <h1 className="text-base font-bold text-white">Meal Plan</h1>
+              <p className="flex items-center gap-1 text-xs text-slate-500">
+                <CalendarDays className="h-3 w-3" />
+                {durationDays} days starting{' '}
+                {new Date(startDate + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+              </p>
+            </div>
           </div>
 
           {isFinalized ? (
@@ -201,45 +221,34 @@ export default function PlanPage() {
               <CheckCircle2 className="h-3.5 w-3.5" />
               Finalized
             </span>
-          ) : planData?.plan && planData.slots.length > 0 ? (
+          ) : planData?.slots && planData.slots.length > 0 ? (
             <button
               type="button"
               onClick={() => void handleFinalize()}
               disabled={finalizing}
-              className="flex items-center gap-1.5 rounded-full bg-primary px-3 py-1.5 text-xs font-semibold text-white hover:bg-primary/90 disabled:opacity-60"
+              className="rounded-full bg-primary px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-60"
             >
-              {finalizing ? 'Generating…' : 'Generate grocery list →'}
+              {finalizing ? 'Generating…' : 'Grocery list →'}
             </button>
           ) : null}
         </div>
       </div>
 
-      {/* ── Toast ──────────────────────────────────────────────────────────── */}
+      {/* Toast */}
       {toast && (
         <div
           className={`mx-4 mt-3 flex items-start gap-2 rounded-xl px-3 py-2.5 text-sm ${
-            toast.type === 'error'
-              ? 'bg-red-500/10 text-red-400'
-              : 'bg-slate-800 text-slate-300'
+            toast.type === 'error' ? 'bg-red-500/10 text-red-400' : 'bg-slate-800 text-slate-300'
           }`}
         >
-          {toast.type === 'error' ? (
-            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-          ) : (
-            <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-green-400" />
-          )}
           <span className="flex-1">{toast.message}</span>
-          <button
-            type="button"
-            onClick={() => setToast(null)}
-            className="ml-1 text-slate-500 hover:text-slate-300"
-          >
+          <button type="button" onClick={() => setToast(null)} className="text-slate-500 hover:text-slate-300">
             <X className="h-3.5 w-3.5" />
           </button>
         </div>
       )}
 
-      {/* ── Finalized banner ───────────────────────────────────────────────── */}
+      {/* Finalized banner */}
       {isFinalized && (
         <div className="mx-4 mt-3 flex items-center justify-between rounded-xl border border-green-500/30 bg-green-500/10 px-4 py-3 text-sm">
           <span className="text-green-300">Grocery list generated!</span>
@@ -249,27 +258,18 @@ export default function PlanPage() {
         </div>
       )}
 
-      {/* ── Empty plan hint (no slots yet) ────────────────────────────────── */}
-      {planData && !planData.plan && !isFinalized && (
-        <div className="mx-4 mt-3 rounded-xl border border-slate-700 bg-slate-800/50 px-4 py-3 text-sm text-slate-400">
-          Drag a recipe from the strip below onto any meal slot.
-        </div>
-      )}
-
-      {/* ── Calendar + shortlist ──────────────────────────────────────────── */}
-      {planData && (
-        <div className="flex flex-col gap-4 px-4 pt-4">
-          <WeekCalendar
-            planData={planData}
-            shortlist={shortlist}
-            todayIndex={todayIndex()}
-            onAddSlot={handleAddSlot}
-            onMoveSlot={handleMoveSlot}
-            onRemoveSlot={handleRemoveSlot}
-            onToast={showToast}
-          />
-        </div>
-      )}
+      {/* Calendar grid */}
+      <div className="px-4 pt-4">
+        <CalendarGrid
+          startDate={startDate}
+          durationDays={durationDays}
+          slots={planData?.slots ?? []}
+          isFinalized={isFinalized}
+          recipes={shortlist}
+          onAddSlot={handleAddSlot}
+          onRemoveSlot={handleRemoveSlot}
+        />
+      </div>
     </div>
   );
 }

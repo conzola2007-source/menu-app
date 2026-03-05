@@ -7,7 +7,6 @@ import { queryKeys } from '@/lib/queryKeys';
 import { weekStartISO } from '@/lib/utils';
 import { useHousehold } from './useHousehold';
 import { useAuthStore } from '@/stores/authStore';
-import type { MealType } from '@/lib/supabase/types';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -15,6 +14,8 @@ export interface MealPlan {
   id: string;
   household_id: string;
   week_start_date: string;
+  start_date: string | null;      // T7-B: explicit start date (defaults to week_start_date)
+  duration_days: number;          // T7-B: how many days to plan (default 7)
   created_by: string | null;
   finalized_at: string | null;
   created_at: string;
@@ -31,8 +32,7 @@ export interface SlotRecipe {
 export interface MealPlanSlot {
   id: string;
   meal_plan_id: string;
-  day_of_week: number; // 0=Monday … 6=Sunday
-  meal_type: MealType;
+  slot_date: string;    // T7-B: actual date string YYYY-MM-DD (replaced day_of_week + meal_type)
   recipe: SlotRecipe;
 }
 
@@ -51,20 +51,17 @@ export interface WeekPlanData {
   weekStart: string;
   plan: MealPlan | null;
   slots: MealPlanSlot[];
-  /** slots organised as slotsByDay[dayIndex][meal_type] */
-  slotsByDay: Record<number, Partial<Record<MealType, MealPlanSlot>>>;
+  /** slots keyed by slot_date (YYYY-MM-DD) */
+  slotsByDate: Record<string, MealPlanSlot>;
   voteStatus: VoteStatus;
 }
 
 // ─── Internal helpers ─────────────────────────────────────────────────────────
 
-function buildSlotsByDay(
-  slots: MealPlanSlot[],
-): Record<number, Partial<Record<MealType, MealPlanSlot>>> {
-  const byDay: Record<number, Partial<Record<MealType, MealPlanSlot>>> = {};
-  for (let d = 0; d < 7; d++) byDay[d] = {};
-  for (const slot of slots) byDay[slot.day_of_week][slot.meal_type] = slot;
-  return byDay;
+function buildSlotsByDate(slots: MealPlanSlot[]): Record<string, MealPlanSlot> {
+  const byDate: Record<string, MealPlanSlot> = {};
+  for (const slot of slots) byDate[slot.slot_date] = slot;
+  return byDate;
 }
 
 // ─── useMealPlan ──────────────────────────────────────────────────────────────
@@ -104,7 +101,7 @@ export function useMealPlan(overrideWeekStart?: string) {
       // ── 1. Load meal plan for this week ──────────────────────────────────
       const { data: planRaw, error: planErr } = await supabase
         .from('meal_plans')
-        .select('id, household_id, week_start_date, created_by, finalized_at, created_at')
+        .select('id, household_id, week_start_date, start_date, duration_days, created_by, finalized_at, created_at')
         .eq('household_id', householdId!)
         .eq('week_start_date', weekStart)
         .maybeSingle();
@@ -119,11 +116,10 @@ export function useMealPlan(overrideWeekStart?: string) {
         const { data: slotsRaw, error: slotsErr } = await supabase
           .from('meal_plan_slots')
           .select(
-            'id, meal_plan_id, day_of_week, meal_type, recipe:recipes(id, title, emoji, bg_color, advance_prep_days)',
+            'id, meal_plan_id, slot_date, recipe:recipes(id, title, emoji, bg_color, advance_prep_days)',
           )
           .eq('meal_plan_id', plan.id)
-          .order('day_of_week')
-          .order('meal_type');
+          .order('slot_date');
 
         if (slotsErr) throw slotsErr;
 
@@ -131,15 +127,13 @@ export function useMealPlan(overrideWeekStart?: string) {
           (slotsRaw ?? []) as unknown as Array<{
             id: string;
             meal_plan_id: string;
-            day_of_week: number;
-            meal_type: string;
+            slot_date: string;
             recipe: SlotRecipe | SlotRecipe[] | null;
           }>
         ).map((s) => ({
           id: s.id,
           meal_plan_id: s.meal_plan_id,
-          day_of_week: s.day_of_week,
-          meal_type: s.meal_type as MealType,
+          slot_date: s.slot_date,
           recipe: Array.isArray(s.recipe)
             ? s.recipe[0]
             : (s.recipe ?? {
@@ -178,14 +172,11 @@ export function useMealPlan(overrideWeekStart?: string) {
         .filter((m) => !votedUserIds.includes(m.user_id))
         .map((m) => m.profile.display_name);
 
-      // ── 4. Organise slots by day ─────────────────────────────────────────
-      const slotsByDay = buildSlotsByDay(slots);
-
       return {
         weekStart,
         plan,
         slots,
-        slotsByDay,
+        slotsByDate: buildSlotsByDate(slots),
         voteStatus: { votedUserIds, votedNames, waitingOnNames, totalMembers },
       };
     },
@@ -205,13 +196,12 @@ export function useAddSlot() {
   return useMutation({
     mutationFn: async ({
       recipeId,
-      dayOfWeek,
-      mealType,
+      slotDate,
     }: {
       recipeId: string;
-      dayOfWeek: number;
-      mealType: MealType;
-      recipe: SlotRecipe; // carried for optimistic update, not sent to DB
+      slotDate: string;          // YYYY-MM-DD
+      recipe: SlotRecipe;        // carried for optimistic update, not sent to DB
+      durationDays?: number;     // for creating new plan row
     }) => {
       const supabase = getSupabaseClient();
 
@@ -232,6 +222,7 @@ export function useAddSlot() {
           .insert({
             household_id: householdId,
             week_start_date: weekStart,
+            start_date: weekStart,
             created_by: user?.id ?? null,
           })
           .select('id')
@@ -240,40 +231,36 @@ export function useAddSlot() {
         planId = (newPlan as unknown as { id: string }).id;
       }
 
-      // Upsert the slot (replaces if same day+meal already filled)
+      // Upsert the slot (replaces if same date already filled)
       const { error: slotErr } = await supabase.from('meal_plan_slots').upsert(
         {
           meal_plan_id: planId,
           recipe_id: recipeId,
-          day_of_week: dayOfWeek,
-          meal_type: mealType,
+          slot_date: slotDate,
         },
-        { onConflict: 'meal_plan_id,day_of_week,meal_type' },
+        { onConflict: 'meal_plan_id,slot_date' },
       );
       if (slotErr) throw slotErr;
     },
 
-    onMutate: async ({ dayOfWeek, mealType, recipe }) => {
+    onMutate: async ({ slotDate, recipe }) => {
       await qc.cancelQueries({ queryKey });
       const previous = qc.getQueryData<WeekPlanData>(queryKey);
       if (previous) {
         const optimisticSlot: MealPlanSlot = {
           id: `optimistic-${Date.now()}`,
           meal_plan_id: previous.plan?.id ?? 'pending',
-          day_of_week: dayOfWeek,
-          meal_type: mealType,
+          slot_date: slotDate,
           recipe,
         };
         const newSlots = [
-          ...previous.slots.filter(
-            (s) => !(s.day_of_week === dayOfWeek && s.meal_type === mealType),
-          ),
+          ...previous.slots.filter((s) => s.slot_date !== slotDate),
           optimisticSlot,
         ];
         qc.setQueryData<WeekPlanData>(queryKey, {
           ...previous,
           slots: newSlots,
-          slotsByDay: buildSlotsByDay(newSlots),
+          slotsByDate: buildSlotsByDate(newSlots),
         });
       }
       return { previous };
@@ -313,7 +300,7 @@ export function useRemoveSlot() {
         qc.setQueryData<WeekPlanData>(queryKey, {
           ...previous,
           slots: newSlots,
-          slotsByDay: buildSlotsByDay(newSlots),
+          slotsByDate: buildSlotsByDate(newSlots),
         });
       }
       return { previous };
@@ -341,38 +328,94 @@ export function useMoveSlot() {
   return useMutation({
     mutationFn: async ({
       slotId,
-      newDayOfWeek,
-      newMealType,
+      newSlotDate,
     }: {
       slotId: string;
-      newDayOfWeek: number;
-      newMealType: MealType;
+      newSlotDate: string;   // YYYY-MM-DD
     }) => {
       const supabase = getSupabaseClient();
       const { error } = await supabase
         .from('meal_plan_slots')
-        .update({ day_of_week: newDayOfWeek, meal_type: newMealType } as never)
+        .update({ slot_date: newSlotDate } as never)
         .eq('id', slotId);
       if (error) throw error;
     },
 
-    onMutate: async ({ slotId, newDayOfWeek, newMealType }) => {
+    onMutate: async ({ slotId, newSlotDate }) => {
       await qc.cancelQueries({ queryKey });
       const previous = qc.getQueryData<WeekPlanData>(queryKey);
       if (previous) {
-        const newSlots = previous.slots.map((s) =>
-          s.id === slotId ? { ...s, day_of_week: newDayOfWeek, meal_type: newMealType } : s,
-        );
-        // If target slot was occupied, remove the old occupant (the moved slot replaces it)
-        const deduped = newSlots.filter(
-          (s) =>
-            s.id === slotId ||
-            !(s.day_of_week === newDayOfWeek && s.meal_type === newMealType && s.id !== slotId),
-        );
+        const newSlots = previous.slots
+          .filter((s) => !(s.slot_date === newSlotDate && s.id !== slotId))
+          .map((s) => (s.id === slotId ? { ...s, slot_date: newSlotDate } : s));
         qc.setQueryData<WeekPlanData>(queryKey, {
           ...previous,
-          slots: deduped,
-          slotsByDay: buildSlotsByDay(deduped),
+          slots: newSlots,
+          slotsByDate: buildSlotsByDate(newSlots),
+        });
+      }
+      return { previous };
+    },
+
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.previous) qc.setQueryData(queryKey, ctx.previous);
+    },
+
+    onSettled: () => {
+      void qc.invalidateQueries({ queryKey });
+    },
+  });
+}
+
+// ─── useUpdatePlanDuration ────────────────────────────────────────────────────
+
+export function useUpdatePlanDuration() {
+  const qc = useQueryClient();
+  const { data: membership } = useHousehold();
+  const user = useAuthStore((s) => s.user);
+  const householdId = membership?.household?.id ?? '';
+  const weekStart = weekStartISO();
+  const queryKey = queryKeys.mealPlan.week(householdId, weekStart);
+
+  return useMutation({
+    mutationFn: async ({ durationDays }: { durationDays: number }) => {
+      const supabase = getSupabaseClient();
+
+      // Upsert plan with new duration
+      const { data: existing } = await supabase
+        .from('meal_plans')
+        .select('id')
+        .eq('household_id', householdId)
+        .eq('week_start_date', weekStart)
+        .maybeSingle();
+
+      if (existing) {
+        const { error } = await supabase
+          .from('meal_plans')
+          .update({ duration_days: durationDays } as never)
+          .eq('id', (existing as unknown as { id: string }).id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('meal_plans')
+          .insert({
+            household_id: householdId,
+            week_start_date: weekStart,
+            start_date: weekStart,
+            duration_days: durationDays,
+            created_by: user?.id ?? null,
+          });
+        if (error) throw error;
+      }
+    },
+
+    onMutate: async ({ durationDays }) => {
+      await qc.cancelQueries({ queryKey });
+      const previous = qc.getQueryData<WeekPlanData>(queryKey);
+      if (previous?.plan) {
+        qc.setQueryData<WeekPlanData>(queryKey, {
+          ...previous,
+          plan: { ...previous.plan, duration_days: durationDays },
         });
       }
       return { previous };
