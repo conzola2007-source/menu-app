@@ -30,29 +30,45 @@ export default function VotePage() {
   const [localQueue, setLocalQueue] = useState<VoteRecipe[] | null>(null);
   const topCardRef = useRef<SwipeCardHandle>(null);
 
-  // Initialise local queue once on first load
-  // In revote mode: show ALL recipes (not just unvoted)
+  // Reset queue whenever mode changes so revote always starts fresh.
+  // Without this, navigating /vote → /vote?mode=revote keeps localQueue=[]
+  // from the previous session, making allVotedByMe immediately true and
+  // skipping straight past the card stack.
+  useEffect(() => {
+    setLocalQueue(null);
+  }, [isRevoteMode]);
+
+  // Initialise queue from server data once it's been reset (or on first load)
   useEffect(() => {
     if (voteData && localQueue === null) {
       setLocalQueue(isRevoteMode ? voteData.recipes : voteData.unvotedRecipes);
     }
   }, [voteData, localQueue, isRevoteMode]);
 
-  // If a revote session was in progress when the user switched tabs, restore it.
-  // The tab now links to /vote (no query param), so we check sessionStorage here
-  // and redirect to /vote?mode=revote before anything else renders.
+  // Set sessionStorage flag only once the queue is actually loaded with items.
+  // Avoids a race where the flag gets re-set by this effect after the
+  // completion handler tries to clear it.
+  useEffect(() => {
+    if (isRevoteMode && localQueue !== null && localQueue.length > 0) {
+      sessionStorage.setItem('revote_in_progress', 'true');
+    }
+  }, [isRevoteMode, localQueue]);
+
+  // Redirect back to /vote?mode=revote if the user switched tabs mid-revote
   useEffect(() => {
     if (!isRevoteMode && sessionStorage.getItem('revote_in_progress') === 'true') {
       router.replace('/vote?mode=revote');
     }
   }, [isRevoteMode, router]);
 
-  // Keep the sessionStorage flag alive while actively in revote mode
+  // When revote is actually complete (queue explicitly emptied, not just uninitialised),
+  // clear the flag and navigate to meal allocation.
   useEffect(() => {
-    if (isRevoteMode) {
-      sessionStorage.setItem('revote_in_progress', 'true');
+    if (isRevoteMode && localQueue !== null && localQueue.length === 0) {
+      sessionStorage.removeItem('revote_in_progress');
+      router.replace('/plan');
     }
-  }, [isRevoteMode]);
+  }, [isRevoteMode, localQueue, router]);
 
   const isLoading = householdLoading || voteLoading;
 
@@ -116,14 +132,14 @@ export default function VotePage() {
   const queue = localQueue ?? voteData.unvotedRecipes;
   const doneCount = voteData.recipes.length - queue.length;
   const totalCount = voteData.recipes.length;
-  const allVotedByMe = queue.length === 0;
+  // Only true once localQueue has been explicitly initialised AND emptied.
+  // null means "not yet loaded" — we must not treat that as "all voted".
+  const allVotedByMe = localQueue !== null && localQueue.length === 0;
 
   // ── Results view ──────────────────────────────────────────────────────────
   if (allVotedByMe) {
     if (isRevoteMode) {
-      // Clear the in-progress flag and send user straight to meal allocation
-      sessionStorage.removeItem('revote_in_progress');
-      router.replace('/plan');
+      // useEffect is handling router.replace('/plan') — show nothing while it fires
       return null;
     }
     return (
