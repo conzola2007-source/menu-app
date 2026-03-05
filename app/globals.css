@@ -85,6 +85,8 @@ button, a, [role="button"] {
 .pb-safe {
   padding-bottom: env(safe-area-inset-bottom);
 }
+/* pt-safe: preserves the normal 12px (py-3) on non-notch devices,
+   grows to the full safe-area-inset-top on notched iOS devices */
 .pt-safe {
-  padding-top: env(safe-area-inset-top);
+  padding-top: max(0.75rem, env(safe-area-inset-top));
 }

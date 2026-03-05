@@ -22,20 +22,25 @@ export function DayCountPicker({
 }: DayCountPickerProps) {
   const numbers = Array.from({ length: max - min + 1 }, (_, i) => i + min);
   const containerRef = useRef<HTMLDivElement>(null);
-  const isDragging = useRef(false);
+  const isProgrammaticScroll = useRef(false);
+  const scrollResetTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Scroll to the current value on mount and when value changes externally
   useEffect(() => {
-    if (!containerRef.current || isDragging.current) return;
+    if (!containerRef.current) return;
     const idx = value - min;
-    containerRef.current.scrollTo({
-      top: idx * ITEM_HEIGHT,
-      behavior: 'smooth',
-    });
+    const targetTop = idx * ITEM_HEIGHT;
+    if (containerRef.current.scrollTop === targetTop) return;
+    isProgrammaticScroll.current = true;
+    if (scrollResetTimer.current !== null) clearTimeout(scrollResetTimer.current);
+    containerRef.current.scrollTo({ top: targetTop, behavior: 'smooth' });
+    scrollResetTimer.current = setTimeout(() => {
+      isProgrammaticScroll.current = false;
+    }, 400);
   }, [value, min]);
 
   function handleScroll() {
-    if (!containerRef.current) return;
+    if (!containerRef.current || isProgrammaticScroll.current) return;
     const idx = Math.round(containerRef.current.scrollTop / ITEM_HEIGHT);
     const clamped = Math.max(0, Math.min(numbers.length - 1, idx));
     const newVal = numbers[clamped];

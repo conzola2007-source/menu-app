@@ -44,6 +44,8 @@ interface SwipeCardProps {
   position: number;
   onVote: (recipeId: string, vote: VoteType) => void;
   isActive: boolean;
+  /** Current vote for this recipe (shown as badge in revote mode) */
+  currentVote?: VoteType;
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -219,7 +221,7 @@ function ExpandedSheet({
 // ─── SwipeCard ────────────────────────────────────────────────────────────────
 
 export const SwipeCard = forwardRef<SwipeCardHandle, SwipeCardProps>(
-  function SwipeCard({ recipe, position, onVote, isActive }, ref) {
+  function SwipeCard({ recipe, position, onVote, isActive, currentVote }, ref) {
     const x = useMotionValue(0);
     const y = useMotionValue(0);
     // Rotation follows horizontal drag, clamped ±15°
@@ -374,10 +376,15 @@ export const SwipeCard = forwardRef<SwipeCardHandle, SwipeCardProps>(
           <div className="flex h-full flex-col overflow-hidden rounded-3xl border border-slate-700 bg-slate-800 shadow-2xl">
             {/* Hero */}
             <div
-              className="flex items-center justify-center text-7xl"
+              className="relative flex items-center justify-center text-7xl"
               style={{ backgroundColor: recipe.bg_color, flex: '0 0 44%' }}
             >
               {recipe.emoji}
+              {currentVote && (
+                <span className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-black/40 text-base">
+                  {currentVote === 'super' ? '⭐' : currentVote === 'yes' ? '👍' : '👎'}
+                </span>
+              )}
             </div>
 
             {/* Info */}

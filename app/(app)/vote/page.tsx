@@ -2,9 +2,10 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { ThumbsUp, ThumbsDown, Star } from 'lucide-react';
+import { useSearchParams } from 'next/navigation';
+import { ThumbsUp, ThumbsDown, Star, RotateCcw } from 'lucide-react';
 import { useHousehold } from '@/hooks/useHousehold';
-import { useVoteData, useSubmitVote, type VoteRecipe } from '@/hooks/useVotes';
+import { useVoteData, useSubmitVote, useResetVotes, type VoteRecipe } from '@/hooks/useVotes';
 import { SwipeCard, type SwipeCardHandle } from '@/components/vote/SwipeCard';
 import { VoteResults } from '@/components/vote/VoteResults';
 import type { VoteType } from '@/lib/supabase/types';
@@ -15,9 +16,13 @@ const CARD_H = 400;
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function VotePage() {
+  const searchParams = useSearchParams();
+  const isRevoteMode = searchParams.get('mode') === 'revote';
+
   const { data: membership, isLoading: householdLoading } = useHousehold();
   const { data: voteData, isLoading: voteLoading } = useVoteData();
   const submitVote = useSubmitVote();
+  const resetVotes = useResetVotes();
 
   // Local queue: starts from unvoted recipes on first data load, then managed locally
   // (optimistic — we don't wait for the mutation to complete before showing next card)
@@ -25,11 +30,12 @@ export default function VotePage() {
   const topCardRef = useRef<SwipeCardHandle>(null);
 
   // Initialise local queue once on first load
+  // In revote mode: show ALL recipes (not just unvoted)
   useEffect(() => {
     if (voteData && localQueue === null) {
-      setLocalQueue(voteData.unvotedRecipes);
+      setLocalQueue(isRevoteMode ? voteData.recipes : voteData.unvotedRecipes);
     }
-  }, [voteData, localQueue]);
+  }, [voteData, localQueue, isRevoteMode]);
 
   const isLoading = householdLoading || voteLoading;
 
@@ -120,12 +126,31 @@ export default function VotePage() {
   return (
     <div className="flex min-h-screen flex-col bg-slate-900 pb-24">
       {/* Header */}
-      <div className="border-b border-slate-800 px-4 py-3">
+      <div className="border-b border-slate-800 px-4 pb-3 pt-safe">
         <div className="flex items-center justify-between">
-          <h1 className="text-lg font-bold text-white">Vote</h1>
-          <span className="text-xs text-slate-500">
-            {doneCount} / {totalCount} voted
-          </span>
+          <h1 className="text-lg font-bold text-white">
+            {isRevoteMode ? 'Re-vote' : 'Vote'}
+          </h1>
+          <div className="flex items-center gap-3">
+            {isRevoteMode && (
+              <button
+                type="button"
+                onClick={() => {
+                  resetVotes.mutate(undefined, {
+                    onSuccess: () => setLocalQueue(voteData?.recipes ?? []),
+                  });
+                }}
+                disabled={resetVotes.isPending}
+                className="flex items-center gap-1 text-xs text-red-400 hover:text-red-300 disabled:opacity-50"
+              >
+                <RotateCcw className="h-3 w-3" />
+                Reset all
+              </button>
+            )}
+            <span className="text-xs text-slate-500">
+              {doneCount} / {totalCount} voted
+            </span>
+          </div>
         </div>
 
         {/* Progress bar */}
@@ -151,6 +176,7 @@ export default function VotePage() {
               position={index}
               onVote={handleVote}
               isActive={index === 0}
+              currentVote={isRevoteMode && index === 0 ? voteData?.myVotes[recipe.id] : undefined}
             />
           ))}
         </div>

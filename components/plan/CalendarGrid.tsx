@@ -3,12 +3,15 @@
 import { useMemo } from 'react';
 import { DayCell } from './DayCell';
 import type { MealPlanSlot } from '@/hooks/useMealPlan';
+import type { VoteType } from '@/lib/supabase/types';
 
 interface CalendarGridProps {
   startDate: string;    // YYYY-MM-DD
   durationDays: number;
   slots: MealPlanSlot[];
   recipes: Array<{ id: string; title: string; emoji: string; bg_color: string; advance_prep_days: number }>;
+  allVotes: { user_id: string; recipe_id: string; vote: VoteType }[];
+  totalMembers: number;
   onAddSlot: (slotDate: string, recipeId: string) => void;
   onRemoveSlot: (slotId: string) => void;
 }
@@ -18,6 +21,8 @@ export function CalendarGrid({
   durationDays,
   slots,
   recipes,
+  allVotes,
+  totalMembers,
   onAddSlot,
   onRemoveSlot,
 }: CalendarGridProps) {
@@ -58,6 +63,8 @@ export function CalendarGrid({
             slot={slotByDate[iso] ?? null}
             isToday={iso === todayISO}
             recipes={recipes}
+            allVotes={allVotes}
+            totalMembers={totalMembers}
             onAdd={onAddSlot}
             onRemove={onRemoveSlot}
           />

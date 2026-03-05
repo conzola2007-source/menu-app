@@ -99,7 +99,7 @@ export default function GroceryPage() {
   return (
     <div className="min-h-screen bg-slate-900 pb-32">
       {/* ── Header ──────────────────────────────────────────────────────────── */}
-      <div className="sticky top-0 z-20 border-b border-slate-800 bg-slate-900/95 px-4 py-3 backdrop-blur">
+      <div className="sticky top-0 z-20 border-b border-slate-800 bg-slate-900/95 px-4 pb-3 pt-safe backdrop-blur">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-base font-bold text-white">Grocery</h1>

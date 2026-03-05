@@ -396,7 +396,7 @@ export default function PlannedPage() {
   return (
     <div className="min-h-screen bg-slate-900 pb-24">
       {/* Sticky header */}
-      <div className="sticky top-0 z-10 border-b border-slate-800 bg-slate-900/95 px-4 py-3 backdrop-blur">
+      <div className="sticky top-0 z-10 border-b border-slate-800 bg-slate-900/95 px-4 pb-3 pt-safe backdrop-blur">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-lg font-bold text-white">{membership.household.name}</h1>
@@ -410,7 +410,7 @@ export default function PlannedPage() {
           </div>
           {state === 'has-plan' && (
             <Link
-              href="/vote"
+              href="/vote?mode=revote"
               className="text-xs text-slate-500 hover:text-slate-300"
             >
               Re-vote

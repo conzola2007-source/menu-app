@@ -27,7 +27,6 @@ function generateSecureCode(): string {
 export default function HouseholdSettingsPage() {
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
-  const { signOut } = useAuthStore();
   const { data: membership, isLoading } = useHousehold();
   const queryClient = useQueryClient();
 
@@ -98,10 +97,8 @@ export default function HouseholdSettingsPage() {
         .delete()
         .eq('id', membership.household.id);
       if (err) throw err;
-      // Sign out and redirect
-      await supabase.auth.signOut();
-      signOut();
-      router.push('/sign-in');
+      await queryClient.invalidateQueries({ queryKey: queryKeys.household.current() });
+      router.push('/household/create');
     } catch {
       setError('Failed to delete household. Please try again.');
       setConfirmDelete(false);
@@ -143,7 +140,7 @@ export default function HouseholdSettingsPage() {
   return (
     <div className="min-h-screen bg-slate-900 pb-24">
       {/* Header */}
-      <div className="sticky top-0 z-10 border-b border-slate-800 bg-slate-900/95 px-4 py-3 backdrop-blur">
+      <div className="sticky top-0 z-10 border-b border-slate-800 bg-slate-900/95 px-4 pb-3 pt-safe backdrop-blur">
         <div className="flex items-center gap-3">
           <button
             type="button"

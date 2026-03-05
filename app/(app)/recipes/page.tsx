@@ -58,7 +58,7 @@ export default function RecipesPage() {
   return (
     <div className="flex min-h-screen flex-col bg-slate-900 pb-24">
       {/* Header */}
-      <div className="sticky top-0 z-10 border-b border-slate-800 bg-slate-900/95 px-4 py-3 backdrop-blur">
+      <div className="sticky top-0 z-10 border-b border-slate-800 bg-slate-900/95 px-4 pb-3 pt-safe backdrop-blur">
         <div className="flex items-center justify-between">
           <h1 className="text-lg font-bold text-white">Recipes</h1>
           <Link

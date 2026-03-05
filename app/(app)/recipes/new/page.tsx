@@ -62,7 +62,7 @@ export default function NewRecipePage() {
   return (
     <div className="min-h-screen bg-slate-900">
       {/* Header */}
-      <div className="sticky top-0 z-10 flex items-center gap-3 border-b border-slate-800 bg-slate-900/95 px-4 py-3 backdrop-blur">
+      <div className="sticky top-0 z-10 flex items-center gap-3 border-b border-slate-800 bg-slate-900/95 px-4 pb-3 pt-safe backdrop-blur">
         <button
           type="button"
           onClick={() => router.back()}

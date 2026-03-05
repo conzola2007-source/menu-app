@@ -2,8 +2,11 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Settings, UserPlus, LogIn } from 'lucide-react';
-import { useHousehold } from '@/hooks/useHousehold';
+import { useRouter } from 'next/navigation';
+import { AnimatePresence, motion } from 'framer-motion';
+import { Settings, UserPlus, LogIn, ChevronDown, Check, X, PlusCircle } from 'lucide-react';
+import { useHousehold, useHouseholds } from '@/hooks/useHousehold';
+import { useRecipes } from '@/hooks/useRecipes';
 import { useAuthStore } from '@/stores/authStore';
 import { InviteCodeDisplay } from '@/components/household/InviteCodeDisplay';
 import { MemberList } from '@/components/household/MemberList';
@@ -12,10 +15,15 @@ import { IngredientList } from '@/components/household/IngredientList';
 import { VisitInviteSheet } from '@/components/household/VisitInviteSheet';
 
 export default function HouseholdPage() {
+  const router = useRouter();
   const { data: membership, isLoading } = useHousehold();
+  const { data: allHouseholds = [] } = useHouseholds();
+  const { data: recipes = [] } = useRecipes();
   const user = useAuthStore((s) => s.user);
+  const setActiveHousehold = useAuthStore((s) => s.setActiveHousehold);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [showVisitInvite, setShowVisitInvite] = useState(false);
+  const [showSwitcher, setShowSwitcher] = useState(false);
 
   if (isLoading) {
     return (
@@ -69,9 +77,19 @@ export default function HouseholdPage() {
   return (
     <div className="min-h-screen bg-slate-900 pb-24">
       {/* Header */}
-      <div className="sticky top-0 z-10 border-b border-slate-800 bg-slate-900/95 px-4 py-3 backdrop-blur">
+      <div className="sticky top-0 z-10 border-b border-slate-800 bg-slate-900/95 px-4 pb-3 pt-safe backdrop-blur">
         <div className="flex items-center justify-between">
-          <h1 className="text-lg font-bold text-white">{membership.household.name}</h1>
+          {/* Household name — tap to switch */}
+          <button
+            type="button"
+            onClick={() => setShowSwitcher(true)}
+            className="flex items-center gap-1.5 text-lg font-bold text-white"
+          >
+            {membership.household.name}
+            {allHouseholds.length > 1 && (
+              <ChevronDown className="h-4 w-4 text-slate-400" />
+            )}
+          </button>
           <Link
             href="/household/settings"
             className="flex items-center gap-1.5 rounded-full bg-slate-800 px-3 py-1.5 text-xs text-slate-400 hover:bg-slate-700"
@@ -119,6 +137,34 @@ export default function HouseholdPage() {
 
         {/* Ingredient library */}
         <IngredientList householdId={membership.household.id} />
+
+        {/* Recipe library — all household members' recipes combined */}
+        {recipes.length > 0 && (
+          <section>
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Recipes · {recipes.length}
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              {recipes.map((r) => (
+                <Link
+                  key={r.id}
+                  href={`/recipes/${r.id}`}
+                  className="flex items-center gap-2 rounded-2xl border border-slate-800 bg-slate-900 px-3 py-2.5"
+                >
+                  <span
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-lg"
+                    style={{ backgroundColor: r.bg_color }}
+                  >
+                    {r.emoji}
+                  </span>
+                  <span className="flex-1 truncate text-xs font-medium text-white">
+                    {r.title}
+                  </span>
+                </Link>
+              ))}
+            </div>
+          </section>
+        )}
       </div>
 
       {/* Member recipes sheet */}
@@ -142,6 +188,84 @@ export default function HouseholdPage() {
           onClose={() => setShowVisitInvite(false)}
         />
       )}
+
+      {/* Household switcher sheet */}
+      <AnimatePresence>
+        {showSwitcher && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm"
+              onClick={() => setShowSwitcher(false)}
+            />
+            <motion.div
+              drag="y"
+              dragConstraints={{ top: 0 }}
+              dragElastic={0.2}
+              onDragEnd={(_e, info) => { if (info.offset.y > 100) setShowSwitcher(false); }}
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+              className="fixed bottom-0 left-0 right-0 z-50 rounded-t-2xl border-t border-slate-700 bg-slate-900 shadow-2xl"
+            >
+              <div className="flex cursor-grab justify-center pt-3 pb-1 active:cursor-grabbing">
+                <div className="h-1 w-10 rounded-full bg-slate-600" />
+              </div>
+              <div className="flex items-center justify-between border-b border-slate-800 px-4 py-3">
+                <p className="text-sm font-semibold text-white">Your households</p>
+                <button
+                  type="button"
+                  onClick={() => setShowSwitcher(false)}
+                  className="rounded-full p-1.5 text-slate-500 hover:bg-slate-800 hover:text-slate-300"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              <div className="flex flex-col pb-10">
+                {allHouseholds.map((h) => {
+                  const isActive = h.household.id === membership.household.id;
+                  return (
+                    <button
+                      key={h.household.id}
+                      type="button"
+                      onClick={() => {
+                        setActiveHousehold(h.household.id);
+                        setShowSwitcher(false);
+                      }}
+                      className="flex items-center gap-3 px-4 py-3.5 text-left hover:bg-slate-800"
+                    >
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-slate-800 text-lg">
+                        🏠
+                      </span>
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-white">{h.household.name}</p>
+                        <p className="text-xs text-slate-500">{h.members.length} member{h.members.length !== 1 ? 's' : ''}</p>
+                      </div>
+                      {isActive && <Check className="h-4 w-4 text-primary" />}
+                    </button>
+                  );
+                })}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowSwitcher(false);
+                    router.push('/household/join');
+                  }}
+                  className="flex items-center gap-3 border-t border-slate-800 px-4 py-3.5 text-left hover:bg-slate-800"
+                >
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-slate-800">
+                    <PlusCircle className="h-5 w-5 text-primary" />
+                  </span>
+                  <span className="text-sm font-medium text-slate-400">Join another household</span>
+                </button>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

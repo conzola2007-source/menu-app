@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { getSupabaseClient } from '@/lib/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
+import { useAuthStore } from '@/stores/authStore';
 import { queryKeys } from '@/lib/queryKeys';
 
 interface HouseholdPreview {
@@ -22,6 +23,7 @@ export default function JoinHouseholdPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
+  const setActiveHousehold = useAuthStore((s) => s.setActiveHousehold);
 
   const [code, setCode] = useState(searchParams.get('code') ?? '');
   const visitDays = parseInt(searchParams.get('visit') ?? '0', 10) || 0;
@@ -86,15 +88,16 @@ export default function JoinHouseholdPage() {
       return;
     }
 
-    // Check not already in a household
+    // Check not already in THIS specific household
     const { data: existing } = await supabase
       .from('household_members')
       .select('household_id')
       .eq('user_id', user.id)
+      .eq('household_id', preview.id)
       .maybeSingle();
 
     if (existing) {
-      setJoinError("You're already in a household. Leave your current household first.");
+      setJoinError("You're already a member of this household.");
       setIsJoining(false);
       return;
     }
@@ -123,7 +126,9 @@ export default function JoinHouseholdPage() {
       return;
     }
 
+    setActiveHousehold(preview.id);
     await queryClient.invalidateQueries({ queryKey: queryKeys.household.current() });
+    await queryClient.invalidateQueries({ queryKey: queryKeys.household.all() });
     router.push('/planned');
   }
 

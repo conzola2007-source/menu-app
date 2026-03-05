@@ -197,6 +197,37 @@ export function useVoteData() {
   });
 }
 
+// ─── useResetVotes ────────────────────────────────────────────────────────────
+
+export function useResetVotes() {
+  const queryClient = useQueryClient();
+  const user = useAuthStore((s) => s.user);
+  const { data: membership } = useHousehold();
+
+  return useMutation({
+    mutationFn: async () => {
+      const supabase = getSupabaseClient();
+      const weekStart = weekStartISO();
+      const householdId = membership!.household.id;
+      const { error } = await supabase
+        .from('votes')
+        .delete()
+        .eq('household_id', householdId)
+        .eq('user_id', user!.id)
+        .eq('week_start_date', weekStart);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      const householdId = membership?.household.id;
+      if (householdId) {
+        void queryClient.invalidateQueries({
+          queryKey: queryKeys.votes.week(householdId, weekStartISO()),
+        });
+      }
+    },
+  });
+}
+
 // ─── useSubmitVote ────────────────────────────────────────────────────────────
 
 export function useSubmitVote() {
