@@ -15,6 +15,15 @@ import { MemberRecipes } from '@/components/household/MemberRecipes';
 import { IngredientList } from '@/components/household/IngredientList';
 import { VisitInviteSheet } from '@/components/household/VisitInviteSheet';
 
+type Tab = 'analytics' | 'household' | 'ingredients' | 'recipes';
+
+const TABS: { id: Tab; label: string }[] = [
+  { id: 'analytics', label: 'Analytics' },
+  { id: 'household', label: 'Household' },
+  { id: 'ingredients', label: 'Ingredients' },
+  { id: 'recipes', label: 'Recipes' },
+];
+
 export default function HouseholdPage() {
   const router = useRouter();
   const { data: membership, isLoading } = useHousehold();
@@ -23,6 +32,7 @@ export default function HouseholdPage() {
   const user = useAuthStore((s) => s.user);
   const setActiveHousehold = useAuthStore((s) => s.setActiveHousehold);
   const removeMember = useRemoveMember();
+  const [activeTab, setActiveTab] = useState<Tab>('household');
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [showVisitInvite, setShowVisitInvite] = useState(false);
   const [showSwitcher, setShowSwitcher] = useState(false);
@@ -42,14 +52,14 @@ export default function HouseholdPage() {
       <div className="min-h-screen bg-slate-900 px-4 pt-4 pb-24">
         <div className="animate-pulse space-y-3">
           <div className="h-10 w-48 rounded-xl bg-slate-800" />
-          <div className="h-32 rounded-2xl bg-slate-800" />
+          <div className="h-10 rounded-2xl bg-slate-800" />
           <div className="h-48 rounded-2xl bg-slate-800" />
         </div>
       </div>
     );
   }
 
-  // ── No household: show onboarding options ───────────────────────────────────
+  // ── No household ─────────────────────────────────────────────────────────────
   if (!membership) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-6 bg-slate-900 px-6">
@@ -60,7 +70,6 @@ export default function HouseholdPage() {
             Create your own or join one with an invite code.
           </p>
         </div>
-
         <div className="flex w-full max-w-xs flex-col gap-3">
           <Link
             href="/household/create"
@@ -85,13 +94,11 @@ export default function HouseholdPage() {
     ? membership.members.find((m) => m.user_id === selectedUserId) ?? null
     : null;
 
-  // ── In a household: show info + members ─────────────────────────────────────
   return (
     <div className="min-h-screen bg-slate-900 pb-24">
       {/* Header */}
       <div className="sticky top-0 z-10 border-b border-slate-800 bg-slate-900/95 px-4 pb-3 pt-safe backdrop-blur">
         <div className="flex items-center justify-between">
-          {/* Household name — tap to switch */}
           <button
             type="button"
             onClick={() => setShowSwitcher(true)}
@@ -112,73 +119,121 @@ export default function HouseholdPage() {
         </div>
       </div>
 
-      <div className="flex flex-col gap-5 px-4 pt-5">
-        {/* Invite code */}
-        <section>
-          <div className="mb-2 flex items-center justify-between">
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-              Invite
-            </p>
+      {/* Tab island */}
+      <div className="px-4 pt-4">
+        <div className="flex rounded-2xl bg-slate-800 p-1">
+          {TABS.map((tab) => (
             <button
+              key={tab.id}
               type="button"
-              onClick={() => setShowVisitInvite(true)}
-              className="text-xs text-slate-400 hover:text-white"
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex-1 rounded-xl py-2 text-xs font-medium transition-colors ${
+                activeTab === tab.id
+                  ? 'bg-white text-slate-900 shadow-sm'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
             >
-              + Invite as visitor
+              {tab.label}
             </button>
-          </div>
-          <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
-            <InviteCodeDisplay code={membership.household.invite_code} />
-          </div>
-        </section>
+          ))}
+        </div>
+      </div>
 
-        {/* Members — tap to view their recipes */}
-        <section>
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-            Members · {membership.members.length}
-          </p>
-          <p className="mb-2 text-xs text-slate-600">Tap a member to see their recipes</p>
-          <div className="rounded-2xl border border-slate-800 bg-slate-900 p-2">
-            <MemberList
-              members={membership.members}
-              currentUserId={user?.id ?? null}
-              onMemberClick={(uid) => setSelectedUserId(uid)}
-              isCurrentUserOwner={membership.role === 'owner'}
-              onKickMember={membership.role === 'owner' ? handleKickMember : undefined}
-              kickingUserId={kickingUserId}
-            />
+      {/* Tab content */}
+      <div className="flex flex-col gap-4 px-4 pt-4">
+
+        {/* ── Analytics ───────────────────────────────────────────────────── */}
+        {activeTab === 'analytics' && (
+          <div className="flex flex-col items-center justify-center py-20 text-center">
+            <span className="text-5xl">📊</span>
+            <p className="mt-3 font-medium text-white">Analytics coming soon</p>
+            <p className="mt-1 text-sm text-slate-500">Meal history, top recipes, and more.</p>
           </div>
-        </section>
+        )}
 
-        {/* Ingredient library */}
-        <IngredientList householdId={membership.household.id} />
+        {/* ── Household ───────────────────────────────────────────────────── */}
+        {activeTab === 'household' && (
+          <>
+            {/* Members */}
+            <section>
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Members · {membership.members.length}
+              </p>
+              <div className="rounded-2xl border border-slate-800 bg-slate-900 p-2">
+                <MemberList
+                  members={membership.members}
+                  currentUserId={user?.id ?? null}
+                  onMemberClick={(uid) => setSelectedUserId(uid)}
+                  isCurrentUserOwner={membership.role === 'owner'}
+                  onKickMember={membership.role === 'owner' ? handleKickMember : undefined}
+                  kickingUserId={kickingUserId}
+                />
+              </div>
+            </section>
 
-        {/* Recipe library — all household members' recipes combined */}
-        {recipes.length > 0 && (
-          <section>
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-              Recipes · {recipes.length}
-            </p>
-            <div className="grid grid-cols-2 gap-2">
-              {recipes.map((r) => (
-                <Link
-                  key={r.id}
-                  href={`/recipes/${r.id}`}
-                  className="flex items-center gap-2 rounded-2xl border border-slate-800 bg-slate-900 px-3 py-2.5"
+            {/* Invite */}
+            <section>
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Invite
+              </p>
+              <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
+                <InviteCodeDisplay code={membership.household.invite_code} />
+                <button
+                  type="button"
+                  onClick={() => setShowVisitInvite(true)}
+                  className="mt-3 text-sm text-slate-400 hover:text-white"
                 >
-                  <span
-                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-lg"
-                    style={{ backgroundColor: r.bg_color }}
-                  >
-                    {r.emoji}
-                  </span>
-                  <span className="flex-1 truncate text-xs font-medium text-white">
-                    {r.title}
-                  </span>
-                </Link>
-              ))}
+                  + Invite as visitor
+                </button>
+              </div>
+            </section>
+          </>
+        )}
+
+        {/* ── Ingredients ─────────────────────────────────────────────────── */}
+        {activeTab === 'ingredients' && (
+          <IngredientList householdId={membership.household.id} />
+        )}
+
+        {/* ── Recipes ─────────────────────────────────────────────────────── */}
+        {activeTab === 'recipes' && (
+          recipes.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-20 text-center">
+              <span className="text-5xl">🍽️</span>
+              <p className="mt-3 font-medium text-white">No recipes yet</p>
+              <Link
+                href="/recipes/new"
+                className="mt-3 rounded-full bg-primary px-4 py-2 text-sm font-medium text-white"
+              >
+                Add a recipe
+              </Link>
             </div>
-          </section>
+          ) : (
+            <section>
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Recipes · {recipes.length}
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                {recipes.map((r) => (
+                  <Link
+                    key={r.id}
+                    href={`/recipes/${r.id}`}
+                    className="flex items-center gap-2 rounded-2xl border border-slate-800 bg-slate-900 px-3 py-2.5"
+                  >
+                    <span
+                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-lg"
+                      style={{ backgroundColor: r.bg_color }}
+                    >
+                      {r.emoji}
+                    </span>
+                    <span className="flex-1 truncate text-xs font-medium text-white">
+                      {r.title}
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            </section>
+          )
         )}
       </div>
 

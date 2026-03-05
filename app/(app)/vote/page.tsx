@@ -79,6 +79,14 @@ export default function VotePage() {
     }
   }, [isRevoteMode, localQueue, router]);
 
+  // Normal vote complete — go straight to plan.
+  // localQueue starts as null (not yet loaded), so [] only means genuinely empty.
+  useEffect(() => {
+    if (!isRevoteMode && localQueue !== null && localQueue.length === 0) {
+      router.replace('/plan');
+    }
+  }, [isRevoteMode, localQueue, router]);
+
   const isLoading = householdLoading || voteLoading;
 
   // ── Handle a vote ──────────────────────────────────────────────────────────
@@ -146,28 +154,9 @@ export default function VotePage() {
   const allVotedByMe = localQueue !== null && localQueue.length === 0;
 
   // ── Results view ──────────────────────────────────────────────────────────
+  // Both modes redirect to /plan via useEffect — return null to avoid flash.
   if (allVotedByMe) {
-    if (isRevoteMode) {
-      // useEffect is handling router.replace('/plan') — show nothing while it fires
-      return null;
-    }
-    return (
-      <div className="min-h-screen bg-slate-900 pb-24">
-        <div className="border-b border-slate-800 px-4 py-3">
-          <h1 className="text-lg font-bold text-white">Vote</h1>
-        </div>
-        <div className="px-4 pt-4">
-          <VoteResults
-            recipes={voteData.recipes}
-            myVotes={voteData.myVotes}
-            allVotes={voteData.allVotes}
-            memberStatuses={voteData.memberStatuses}
-            totalMembers={voteData.totalMembers}
-            allMembersFinished={voteData.allMembersFinished}
-          />
-        </div>
-      </div>
-    );
+    return null;
   }
 
   // ── Swipe view ────────────────────────────────────────────────────────────
