@@ -293,7 +293,7 @@ export default function PlanPage() {
               animate={{ y: 0 }}
               exit={{ y: '100%' }}
               transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-              className="fixed bottom-0 left-0 right-0 z-50 rounded-t-2xl border-t border-slate-700 bg-slate-900 shadow-2xl"
+              className="fixed bottom-0 left-0 right-0 z-[60] rounded-t-2xl border-t border-slate-700 bg-slate-900 shadow-2xl"
             >
               <div className="flex cursor-grab justify-center pt-3 pb-1 active:cursor-grabbing">
                 <div className="h-1 w-10 rounded-full bg-slate-600" />
@@ -308,7 +308,7 @@ export default function PlanPage() {
                   <X className="h-4 w-4" />
                 </button>
               </div>
-              <div className="flex flex-col items-center gap-6 px-4 py-6 pb-10">
+              <div className="flex flex-col items-center gap-6 px-4 py-6 pb-24">
                 <DayCountPicker value={pendingDuration} onChange={setPendingDuration} />
                 <button
                   type="button"

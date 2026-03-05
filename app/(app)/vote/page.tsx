@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { ThumbsUp, ThumbsDown, Star, RotateCcw } from 'lucide-react';
 import { useHousehold } from '@/hooks/useHousehold';
 import { useVoteData, useSubmitVote, useResetVotes, type VoteRecipe } from '@/hooks/useVotes';
@@ -16,6 +16,7 @@ const CARD_H = 400;
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function VotePage() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const isRevoteMode = searchParams.get('mode') === 'revote';
 
@@ -36,6 +37,16 @@ export default function VotePage() {
       setLocalQueue(isRevoteMode ? voteData.recipes : voteData.unvotedRecipes);
     }
   }, [voteData, localQueue, isRevoteMode]);
+
+  // Track revote session in sessionStorage so planned page can redirect back
+  useEffect(() => {
+    if (isRevoteMode) {
+      sessionStorage.setItem('revote_in_progress', 'true');
+    }
+    return () => {
+      // Don't clear on unmount — let the planned page or completion clear it
+    };
+  }, [isRevoteMode]);
 
   const isLoading = householdLoading || voteLoading;
 
@@ -103,6 +114,12 @@ export default function VotePage() {
 
   // ── Results view ──────────────────────────────────────────────────────────
   if (allVotedByMe) {
+    if (isRevoteMode) {
+      // Clear the in-progress flag and send user straight to meal allocation
+      sessionStorage.removeItem('revote_in_progress');
+      router.replace('/plan');
+      return null;
+    }
     return (
       <div className="min-h-screen bg-slate-900 pb-24">
         <div className="border-b border-slate-800 px-4 py-3">

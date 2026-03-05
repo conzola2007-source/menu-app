@@ -40,7 +40,7 @@ export function DayCell({
   return (
     <>
       <div
-        className={`relative flex flex-col rounded-2xl border bg-slate-900 overflow-hidden aspect-video ${
+        className={`relative flex flex-col rounded-2xl border bg-slate-900 overflow-hidden aspect-[9/16] ${
           isToday ? 'border-primary/60' : 'border-slate-800'
         }`}
       >

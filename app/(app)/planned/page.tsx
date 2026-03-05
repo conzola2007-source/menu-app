@@ -1,6 +1,8 @@
 'use client';
 
+import { useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { ArrowRight, ChefHat, CalendarDays, ShoppingCart, CheckCircle2, Clock } from 'lucide-react';
 import { useMealPlan } from '@/hooks/useMealPlan';
 import { useVoteData } from '@/hooks/useVotes';
@@ -337,10 +339,18 @@ function StateMealPlan({
 // ─── Page ──────────────────────────────────────────────────────────────────────
 
 export default function PlannedPage() {
+  const router = useRouter();
   const { data: membership } = useHousehold();
   const user = useAuthStore((s) => s.user);
   const { data: planData, isLoading: planLoading } = useMealPlan();
   const { data: voteData, isLoading: voteLoading } = useVoteData();
+
+  // If a revote session is still in progress, send user back to the vote screen
+  useEffect(() => {
+    if (sessionStorage.getItem('revote_in_progress') === 'true') {
+      router.replace('/vote?mode=revote');
+    }
+  }, [router]);
 
   const weekStart = weekStartISO();
   const isLoading = planLoading || voteLoading;

@@ -34,25 +34,14 @@ export function VisitInviteSheet({ inviteCode, onClose }: VisitInviteSheetProps)
         onClick={onClose}
       />
 
-      {/* Sheet — draggable */}
+      {/* Sheet */}
       <motion.div
-        drag="y"
-        dragConstraints={{ top: 0 }}
-        dragElastic={0.2}
-        onDragEnd={(_e, info) => {
-          if (info.offset.y > 120) onClose();
-        }}
         initial={{ y: '100%' }}
         animate={{ y: 0 }}
         exit={{ y: '100%' }}
         transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-        className="fixed bottom-0 left-0 right-0 z-50 rounded-t-2xl border-t border-slate-700 bg-slate-900 shadow-2xl"
+        className="fixed bottom-0 left-0 right-0 z-[60] rounded-t-2xl border-t border-slate-700 bg-slate-900 shadow-2xl"
       >
-        {/* Drag handle */}
-        <div className="flex cursor-grab justify-center pt-3 pb-1 active:cursor-grabbing">
-          <div className="h-1 w-10 rounded-full bg-slate-600" />
-        </div>
-
         {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-800 px-4 py-3">
           <div>
@@ -68,7 +57,7 @@ export function VisitInviteSheet({ inviteCode, onClose }: VisitInviteSheetProps)
           </button>
         </div>
 
-        <div className="flex flex-col items-center gap-6 px-4 py-6 pb-10">
+        <div className="flex flex-col items-center gap-6 px-4 py-6 pb-24">
           {/* Drum roller day picker */}
           <DayCountPicker
             value={days}
