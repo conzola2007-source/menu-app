@@ -8,6 +8,7 @@ import { Settings, UserPlus, LogIn, ChevronDown, Check, X, PlusCircle } from 'lu
 import { useHousehold, useHouseholds } from '@/hooks/useHousehold';
 import { useRecipes } from '@/hooks/useRecipes';
 import { useAuthStore } from '@/stores/authStore';
+import { useRemoveMember } from '@/hooks/useJoinRequests';
 import { InviteCodeDisplay } from '@/components/household/InviteCodeDisplay';
 import { MemberList } from '@/components/household/MemberList';
 import { MemberRecipes } from '@/components/household/MemberRecipes';
@@ -21,9 +22,20 @@ export default function HouseholdPage() {
   const { data: recipes = [] } = useRecipes();
   const user = useAuthStore((s) => s.user);
   const setActiveHousehold = useAuthStore((s) => s.setActiveHousehold);
+  const removeMember = useRemoveMember();
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [showVisitInvite, setShowVisitInvite] = useState(false);
   const [showSwitcher, setShowSwitcher] = useState(false);
+  const [kickingUserId, setKickingUserId] = useState<string | null>(null);
+
+  function handleKickMember(targetUserId: string) {
+    if (!membership) return;
+    setKickingUserId(targetUserId);
+    removeMember.mutate(
+      { targetUserId, householdId: membership.household.id },
+      { onSettled: () => setKickingUserId(null) },
+    );
+  }
 
   if (isLoading) {
     return (
@@ -131,6 +143,9 @@ export default function HouseholdPage() {
               members={membership.members}
               currentUserId={user?.id ?? null}
               onMemberClick={(uid) => setSelectedUserId(uid)}
+              isCurrentUserOwner={membership.role === 'owner'}
+              onKickMember={membership.role === 'owner' ? handleKickMember : undefined}
+              kickingUserId={kickingUserId}
             />
           </div>
         </section>

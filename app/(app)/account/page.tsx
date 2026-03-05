@@ -3,13 +3,15 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Pencil, Check, X, LogOut, ChefHat, Plus, KeyRound, Mail } from 'lucide-react';
+import { Pencil, Check, X, LogOut, ChefHat, Plus, KeyRound, Mail, Bell } from 'lucide-react';
 import { useHousehold } from '@/hooks/useHousehold';
 import { useAuthStore } from '@/stores/authStore';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { getSupabaseClient } from '@/lib/supabase/client';
 import { queryKeys } from '@/lib/queryKeys';
 import { AvatarUpload } from '@/components/account/AvatarUpload';
+import { useJoinRequests, useAcceptJoinRequest, useDenyJoinRequest } from '@/hooks/useJoinRequests';
+import { Avatar } from '@/components/household/MemberList';
 
 // ─── My recipes mini-list ─────────────────────────────────────────────────────
 
@@ -81,6 +83,71 @@ function MyRecipes({ userId }: { userId: string }) {
         View all recipes →
       </Link>
     </div>
+  );
+}
+
+// ─── Join requests section (owner only) ───────────────────────────────────────
+
+function JoinRequestsSection({ householdId }: { householdId: string }) {
+  const { data: requests = [], isLoading } = useJoinRequests(householdId);
+  const accept = useAcceptJoinRequest();
+  const deny = useDenyJoinRequest();
+  const [processingId, setProcessingId] = useState<string | null>(null);
+
+  if (isLoading || requests.length === 0) return null;
+
+  async function handleAccept(requestId: string) {
+    setProcessingId(requestId);
+    try { await accept.mutateAsync(requestId); } finally { setProcessingId(null); }
+  }
+
+  async function handleDeny(requestId: string) {
+    setProcessingId(requestId);
+    try { await deny.mutateAsync(requestId); } finally { setProcessingId(null); }
+  }
+
+  return (
+    <section className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-4">
+      <div className="mb-3 flex items-center gap-2">
+        <Bell className="h-4 w-4 text-amber-400" />
+        <p className="text-sm font-semibold text-amber-300">
+          Join requests · {requests.length}
+        </p>
+      </div>
+      <div className="flex flex-col gap-3">
+        {requests.map((req) => {
+          const name = req.profile?.display_name ?? 'Someone';
+          const isProcessing = processingId === req.id;
+          return (
+            <div key={req.id} className="flex items-center gap-3">
+              <Avatar name={name} avatarUrl={req.profile?.avatar_url} size="sm" />
+              <div className="flex-1 min-w-0">
+                <p className="truncate text-sm font-medium text-white">{name}</p>
+                <p className="text-xs text-slate-500">wants to join your household</p>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => void handleAccept(req.id)}
+                  disabled={isProcessing}
+                  className="flex h-7 w-7 items-center justify-center rounded-full bg-green-500/20 text-green-400 hover:bg-green-500/30 disabled:opacity-40"
+                >
+                  <Check className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handleDeny(req.id)}
+                  disabled={isProcessing}
+                  className="flex h-7 w-7 items-center justify-center rounded-full bg-red-500/20 text-red-400 hover:bg-red-500/30 disabled:opacity-40"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </section>
   );
 }
 
@@ -246,6 +313,11 @@ export default function AccountPage() {
             <p className="text-sm text-slate-500">{user.email}</p>
           )}
         </div>
+
+        {/* Join requests — owners only */}
+        {membership?.role === 'owner' && membership.household.id && (
+          <JoinRequestsSection householdId={membership.household.id} />
+        )}
 
         {/* Security */}
         <section className="rounded-2xl border border-slate-800 bg-slate-900">

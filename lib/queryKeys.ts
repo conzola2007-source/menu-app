@@ -28,4 +28,7 @@ export const queryKeys = {
   ingredients: {
     all: (householdId: string) => ['ingredients', householdId] as const,
   },
+  joinRequests: {
+    list: (householdId: string) => ['joinRequests', householdId] as const,
+  },
 } as const;

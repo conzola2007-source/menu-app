@@ -1,4 +1,4 @@
-import { Crown, User } from 'lucide-react';
+import { Crown, User, UserMinus } from 'lucide-react';
 
 interface Member {
   id: string;
@@ -15,8 +15,9 @@ interface MemberListProps {
   members: Member[];
   currentUserId: string | null;
   onMemberClick?: (userId: string) => void;
-  /** If true, show action buttons per member (role-gated). Not used in Phase 3 — wired in Phase 5+ */
-  showActions?: boolean;
+  isCurrentUserOwner?: boolean;
+  onKickMember?: (userId: string) => void;
+  kickingUserId?: string | null;
 }
 
 function Avatar({
@@ -76,7 +77,14 @@ function formatJoinDate(dateStr: string) {
   });
 }
 
-export function MemberList({ members, currentUserId, onMemberClick }: MemberListProps) {
+export function MemberList({
+  members,
+  currentUserId,
+  onMemberClick,
+  isCurrentUserOwner,
+  onKickMember,
+  kickingUserId,
+}: MemberListProps) {
   // Owner always first
   const sorted = [...members].sort((a, b) => {
     if (a.role === 'owner' && b.role !== 'owner') return -1;
@@ -86,41 +94,60 @@ export function MemberList({ members, currentUserId, onMemberClick }: MemberList
 
   return (
     <ul className="flex flex-col divide-y divide-slate-800">
-      {sorted.map((member) => (
-        <li
-          key={member.id}
-          className={`flex items-center gap-3 py-3 ${onMemberClick ? 'cursor-pointer hover:bg-slate-800/50 rounded-xl px-2 -mx-2' : ''}`}
-          onClick={() => onMemberClick?.(member.user_id)}
-        >
-          <Avatar name={member.profile.display_name} avatarUrl={member.profile.avatar_url} />
+      {sorted.map((member) => {
+        const isMe = member.user_id === currentUserId;
+        const canKick = isCurrentUserOwner && onKickMember && member.role !== 'owner' && !isMe;
+        const isBeingKicked = kickingUserId === member.user_id;
 
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2">
-              <span className="truncate text-sm font-medium text-white">
-                {member.profile.display_name}
-              </span>
-              {member.user_id === currentUserId && (
-                <span className="rounded-full bg-slate-700 px-1.5 py-0.5 text-xs text-slate-400">
-                  you
+        return (
+          <li
+            key={member.id}
+            className={`flex items-center gap-3 py-3 ${onMemberClick ? 'cursor-pointer hover:bg-slate-800/50 rounded-xl px-2 -mx-2' : ''}`}
+            onClick={() => onMemberClick?.(member.user_id)}
+          >
+            <Avatar name={member.profile.display_name} avatarUrl={member.profile.avatar_url} />
+
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="truncate text-sm font-medium text-white">
+                  {member.profile.display_name}
                 </span>
-              )}
+                {isMe && (
+                  <span className="rounded-full bg-slate-700 px-1.5 py-0.5 text-xs text-slate-400">
+                    you
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-slate-500">Joined {formatJoinDate(member.joined_at)}</p>
             </div>
-            <p className="text-xs text-slate-500">Joined {formatJoinDate(member.joined_at)}</p>
-          </div>
 
-          {/* Role badge */}
-          {member.role === 'owner' ? (
-            <span className="flex items-center gap-1 rounded-full bg-amber-500/20 px-2.5 py-1 text-xs font-medium text-amber-300">
-              <Crown className="h-3 w-3" />
-              Owner
-            </span>
-          ) : (
-            <span className="rounded-full bg-slate-700 px-2.5 py-1 text-xs text-slate-400">
-              Member
-            </span>
-          )}
-        </li>
-      ))}
+            {/* Kick button or role badge */}
+            {canKick ? (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onKickMember!(member.user_id);
+                }}
+                disabled={isBeingKicked}
+                className="flex items-center gap-1 rounded-full border border-red-500/30 px-2 py-1 text-xs text-red-400 hover:border-red-500 hover:bg-red-500/10 disabled:opacity-40"
+              >
+                <UserMinus className="h-3 w-3" />
+                {isBeingKicked ? 'Removing…' : 'Kick'}
+              </button>
+            ) : member.role === 'owner' ? (
+              <span className="flex items-center gap-1 rounded-full bg-amber-500/20 px-2.5 py-1 text-xs font-medium text-amber-300">
+                <Crown className="h-3 w-3" />
+                Owner
+              </span>
+            ) : (
+              <span className="rounded-full bg-slate-700 px-2.5 py-1 text-xs text-slate-400">
+                Member
+              </span>
+            )}
+          </li>
+        );
+      })}
     </ul>
   );
 }
