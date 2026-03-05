@@ -1,13 +1,18 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { Settings, UserPlus, LogIn } from 'lucide-react';
 import { useHousehold } from '@/hooks/useHousehold';
+import { useAuthStore } from '@/stores/authStore';
 import { InviteCodeDisplay } from '@/components/household/InviteCodeDisplay';
 import { MemberList } from '@/components/household/MemberList';
+import { MemberRecipes } from '@/components/household/MemberRecipes';
 
 export default function HouseholdPage() {
   const { data: membership, isLoading } = useHousehold();
+  const user = useAuthStore((s) => s.user);
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
 
   if (isLoading) {
     return (
@@ -53,6 +58,10 @@ export default function HouseholdPage() {
     );
   }
 
+  const selectedMember = selectedUserId
+    ? membership.members.find((m) => m.user_id === selectedUserId) ?? null
+    : null;
+
   // ── In a household: show info + members ─────────────────────────────────────
   return (
     <div className="min-h-screen bg-slate-900 pb-24">
@@ -81,16 +90,35 @@ export default function HouseholdPage() {
           </div>
         </section>
 
-        {/* Members */}
+        {/* Members — tap to view their recipes */}
         <section>
           <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
             Members · {membership.members.length}
           </p>
+          <p className="mb-2 text-xs text-slate-600">Tap a member to see their recipes</p>
           <div className="rounded-2xl border border-slate-800 bg-slate-900 p-2">
-            <MemberList members={membership.members} />
+            <MemberList
+              members={membership.members}
+              currentUserId={user?.id ?? null}
+              onMemberClick={(uid) => setSelectedUserId(uid)}
+            />
           </div>
         </section>
       </div>
+
+      {/* Member recipes sheet */}
+      {selectedMember && user && (
+        <MemberRecipes
+          member={{
+            user_id: selectedMember.user_id,
+            name: selectedMember.profile.display_name,
+            avatarUrl: selectedMember.profile.avatar_url,
+          }}
+          currentUserId={user.id}
+          householdId={membership.household.id}
+          onClose={() => setSelectedUserId(null)}
+        />
+      )}
     </div>
   );
 }

@@ -14,6 +14,7 @@ interface Member {
 interface MemberListProps {
   members: Member[];
   currentUserId: string | null;
+  onMemberClick?: (userId: string) => void;
   /** If true, show action buttons per member (role-gated). Not used in Phase 3 — wired in Phase 5+ */
   showActions?: boolean;
 }
@@ -75,7 +76,7 @@ function formatJoinDate(dateStr: string) {
   });
 }
 
-export function MemberList({ members, currentUserId }: MemberListProps) {
+export function MemberList({ members, currentUserId, onMemberClick }: MemberListProps) {
   // Owner always first
   const sorted = [...members].sort((a, b) => {
     if (a.role === 'owner' && b.role !== 'owner') return -1;
@@ -86,7 +87,11 @@ export function MemberList({ members, currentUserId }: MemberListProps) {
   return (
     <ul className="flex flex-col divide-y divide-slate-800">
       {sorted.map((member) => (
-        <li key={member.id} className="flex items-center gap-3 py-3">
+        <li
+          key={member.id}
+          className={`flex items-center gap-3 py-3 ${onMemberClick ? 'cursor-pointer hover:bg-slate-800/50 rounded-xl px-2 -mx-2' : ''}`}
+          onClick={() => onMemberClick?.(member.user_id)}
+        >
           <Avatar name={member.profile.display_name} avatarUrl={member.profile.avatar_url} />
 
           <div className="flex-1 min-w-0">
