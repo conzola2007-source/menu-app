@@ -9,7 +9,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { getSupabaseClient } from '@/lib/supabase/client';
 import { queryKeys } from '@/lib/queryKeys';
-import { Avatar } from '@/components/household/MemberList';
+import { AvatarUpload } from '@/components/account/AvatarUpload';
 
 // ─── My recipes mini-list ─────────────────────────────────────────────────────
 
@@ -93,6 +93,9 @@ export default function AccountPage() {
   const { data: membership, isLoading } = useHousehold();
   const queryClient = useQueryClient();
 
+  const myMemberAvatar = membership?.members.find((m) => m.user_id === user?.id)?.profile.avatar_url ?? null;
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null); // null = use myMemberAvatar
+
   const [editingName, setEditingName] = useState(false);
   const [nameValue, setNameValue] = useState('');
   const [nameLoading, setNameLoading] = useState(false);
@@ -103,8 +106,7 @@ export default function AccountPage() {
   const [passwordLoading, setPasswordLoading] = useState(false);
   const [passwordMsg, setPasswordMsg] = useState<string | null>(null);
 
-  const myMember = membership?.members.find((m) => m.user_id === user?.id);
-  const displayName = myMember?.profile.display_name ?? user?.email ?? 'You';
+  const displayName = membership?.members.find((m) => m.user_id === user?.id)?.profile.display_name ?? user?.email ?? 'You';
 
   // ── Name editing ─────────────────────────────────────────────────────────────
   function startEditName() {
@@ -176,10 +178,18 @@ export default function AccountPage() {
 
         {/* Avatar + name */}
         <div className="flex flex-col items-center gap-4 pb-2">
-          {isLoading ? (
+          {isLoading || !user ? (
             <div className="h-20 w-20 animate-pulse rounded-full bg-slate-700" />
           ) : (
-            <Avatar name={displayName} size="lg" />
+            <AvatarUpload
+              userId={user.id}
+              displayName={displayName}
+              currentAvatarUrl={avatarUrl ?? myMemberAvatar}
+              onUploaded={(url) => {
+                setAvatarUrl(url);
+                void queryClient.invalidateQueries({ queryKey: queryKeys.household.current() });
+              }}
+            />
           )}
 
           {editingName ? (

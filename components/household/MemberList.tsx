@@ -18,7 +18,15 @@ interface MemberListProps {
   showActions?: boolean;
 }
 
-function Avatar({ name, size = 'md' }: { name: string; size?: 'sm' | 'md' | 'lg' }) {
+function Avatar({
+  name,
+  size = 'md',
+  avatarUrl,
+}: {
+  name: string;
+  size?: 'sm' | 'md' | 'lg';
+  avatarUrl?: string | null;
+}) {
   const initials = name
     .split(' ')
     .map((w) => w[0])
@@ -30,6 +38,17 @@ function Avatar({ name, size = 'md' }: { name: string; size?: 'sm' | 'md' | 'lg'
     size === 'sm' ? 'h-8 w-8 text-xs' :
     size === 'lg' ? 'h-20 w-20 text-2xl' :
     'h-10 w-10 text-sm';
+
+  if (avatarUrl) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={avatarUrl}
+        alt={name}
+        className={`shrink-0 rounded-full object-cover ${sizeClass}`}
+      />
+    );
+  }
 
   // Deterministic colour from name
   const colours = [
@@ -68,7 +87,7 @@ export function MemberList({ members, currentUserId }: MemberListProps) {
     <ul className="flex flex-col divide-y divide-slate-800">
       {sorted.map((member) => (
         <li key={member.id} className="flex items-center gap-3 py-3">
-          <Avatar name={member.profile.display_name} />
+          <Avatar name={member.profile.display_name} avatarUrl={member.profile.avatar_url} />
 
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
