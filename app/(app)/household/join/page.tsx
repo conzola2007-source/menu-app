@@ -53,27 +53,20 @@ export default function JoinHouseholdPage() {
     setPreview(null);
 
     const supabase = getSupabaseClient();
-    const { data: householdRaw, error } = await supabase
-      .from('households')
-      .select('id, name')
-      .eq('invite_code', normalised)
-      .maybeSingle();
 
-    if (error || !householdRaw) {
-      // Return a generic message — do not leak whether the code exists or not
+    // Use SECURITY DEFINER RPC so RLS doesn't block lookup for users not yet
+    // in the household (direct SELECT on households would return nothing for them)
+    const { data, error } = await supabase
+      .rpc('find_household_by_invite_code', { code: normalised });
+
+    if (error || !data || data.length === 0) {
       setLookupError('Invalid invite code. Ask your household owner for a new one.');
       setIsLooking(false);
       return;
     }
 
-    const household = householdRaw as unknown as { id: string; name: string };
-
-    const { count } = await supabase
-      .from('household_members')
-      .select('*', { count: 'exact', head: true })
-      .eq('household_id', household.id);
-
-    setPreview({ id: household.id, name: household.name, memberCount: count ?? 0 });
+    const household = data[0] as { id: string; name: string; member_count: number };
+    setPreview({ id: household.id, name: household.name, memberCount: household.member_count });
     setIsLooking(false);
   }
 

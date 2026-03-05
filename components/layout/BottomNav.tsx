@@ -2,27 +2,48 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Vote, CalendarDays, ShoppingCart, UtensilsCrossed } from 'lucide-react';
+import { Users, CalendarDays, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const TABS = [
-  { href: '/week',    label: 'This Week', icon: Home },
-  { href: '/vote',    label: 'Vote',      icon: Vote },
-  { href: '/plan',    label: 'Plan',      icon: CalendarDays },
-  { href: '/grocery', label: 'Grocery',   icon: ShoppingCart },
-  { href: '/recipes', label: 'Recipes',   icon: UtensilsCrossed },
+  {
+    href: '/household',
+    label: 'Household',
+    icon: Users,
+    // active for all household sub-routes
+    prefixes: ['/household'],
+  },
+  {
+    href: '/planned',
+    label: 'Planned',
+    icon: CalendarDays,
+    // active for the new planned hub and all old planning/flow routes
+    prefixes: ['/planned', '/week', '/vote', '/plan', '/grocery', '/recipes'],
+  },
+  {
+    href: '/account',
+    label: 'Account',
+    icon: User,
+    prefixes: ['/account', '/profile'],
+  },
 ] as const;
 
 export function BottomNav() {
   const pathname = usePathname();
+
+  function isActive(prefixes: readonly string[]) {
+    return prefixes.some(
+      (p) => pathname === p || pathname.startsWith(p + '/')
+    );
+  }
 
   return (
     <>
       {/* Mobile bottom nav */}
       <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-slate-700 bg-slate-900 pb-safe md:hidden">
         <div className="flex h-16 items-stretch">
-          {TABS.map(({ href, label, icon: Icon }) => {
-            const active = pathname === href || pathname.startsWith(href + '/');
+          {TABS.map(({ href, label, icon: Icon, prefixes }) => {
+            const active = isActive(prefixes);
             return (
               <Link
                 key={href}
@@ -46,8 +67,8 @@ export function BottomNav() {
           <span className="text-lg font-bold text-white">Menu</span>
         </div>
         <div className="flex flex-col gap-1 px-3">
-          {TABS.map(({ href, label, icon: Icon }) => {
-            const active = pathname === href || pathname.startsWith(href + '/');
+          {TABS.map(({ href, label, icon: Icon, prefixes }) => {
+            const active = isActive(prefixes);
             return (
               <Link
                 key={href}

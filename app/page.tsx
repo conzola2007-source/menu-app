@@ -25,5 +25,5 @@ export default async function RootPage() {
     redirect('/household/create');
   }
 
-  redirect('/week');
+  redirect('/planned');
 }
