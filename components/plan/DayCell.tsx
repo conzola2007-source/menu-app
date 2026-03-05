@@ -7,7 +7,6 @@ interface DayCellProps {
   date: Date;
   slot: MealPlanSlot | null;
   isToday: boolean;
-  isFinalized: boolean;
   recipes: Array<{ id: string; title: string; emoji: string; bg_color: string; advance_prep_days: number }>;
   onAdd: (slotDate: string, recipeId: string) => void;
   onRemove: (slotId: string) => void;
@@ -20,7 +19,6 @@ export function DayCell({
   date,
   slot,
   isToday,
-  isFinalized,
   recipes,
   onAdd,
   onRemove,
@@ -29,13 +27,6 @@ export function DayCell({
   const dayNum = date.getDate();
   const month = MONTH_NAMES[date.getMonth()];
   const slotDateISO = toLocalISODate(date);
-
-  function handleCellClick() {
-    if (isFinalized || slot) return;
-    // Show a simple picker — open native select by triggering a hidden select
-    // Actual recipe picker is handled by parent via a modal; we call onAdd with recipeId
-    // For simplicity we show a small inline picker here
-  }
 
   return (
     <div
@@ -68,21 +59,17 @@ export function DayCell({
             <span className="flex-1 text-xs font-medium leading-tight text-white line-clamp-2">
               {slot.recipe.title}
             </span>
-            {!isFinalized && (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onRemove(slot.id);
-                }}
-                className="shrink-0 rounded-full p-0.5 text-slate-400 hover:bg-slate-700 hover:text-white"
-              >
-                <X className="h-3 w-3" />
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onRemove(slot.id);
+              }}
+              className="shrink-0 rounded-full p-0.5 text-slate-400 hover:bg-slate-700 hover:text-white"
+            >
+              <X className="h-3 w-3" />
+            </button>
           </div>
-        ) : isFinalized ? (
-          <span className="text-xs text-slate-600">Empty</span>
         ) : (
           <RecipePicker
             recipes={recipes}

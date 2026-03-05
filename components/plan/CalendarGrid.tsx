@@ -8,7 +8,6 @@ interface CalendarGridProps {
   startDate: string;    // YYYY-MM-DD
   durationDays: number;
   slots: MealPlanSlot[];
-  isFinalized: boolean;
   recipes: Array<{ id: string; title: string; emoji: string; bg_color: string; advance_prep_days: number }>;
   onAddSlot: (slotDate: string, recipeId: string) => void;
   onRemoveSlot: (slotId: string) => void;
@@ -18,7 +17,6 @@ export function CalendarGrid({
   startDate,
   durationDays,
   slots,
-  isFinalized,
   recipes,
   onAddSlot,
   onRemoveSlot,
@@ -49,7 +47,7 @@ export function CalendarGrid({
   return (
     <div
       className="grid gap-3"
-      style={{ gridTemplateColumns: 'repeat(4, minmax(0, 1fr))' }}
+      style={{ gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}
     >
       {days.map((date) => {
         const iso = toLocalISODate(date);
@@ -59,7 +57,6 @@ export function CalendarGrid({
             date={date}
             slot={slotByDate[iso] ?? null}
             isToday={iso === todayISO}
-            isFinalized={isFinalized}
             recipes={recipes}
             onAdd={onAddSlot}
             onRemove={onRemoveSlot}

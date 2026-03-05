@@ -8,6 +8,7 @@ interface DayCountPickerProps {
   onChange: (days: number) => void;
   min?: number;
   max?: number;
+  presets?: number[];
 }
 
 const ITEM_HEIGHT = 48;
@@ -17,6 +18,7 @@ export function DayCountPicker({
   onChange,
   min = 1,
   max = 30,
+  presets = [3, 5, 7, 14],
 }: DayCountPickerProps) {
   const numbers = Array.from({ length: max - min + 1 }, (_, i) => i + min);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -101,7 +103,7 @@ export function DayCountPicker({
 
       {/* Quick presets */}
       <div className="flex gap-2">
-        {[3, 5, 7, 14].map((d) => (
+        {presets.map((d) => (
           <button
             key={d}
             type="button"

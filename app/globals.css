@@ -64,10 +64,18 @@ button, a, [role="button"] {
   -webkit-tap-highlight-color: transparent;
 }
 
-/* ─── Hide scrollbars but keep scrollability ────────────────────────────── */
-.scrollbar-none {
-  -ms-overflow-style: none;
+/* ─── Hide scrollbars globally (iOS white scrollbar tab, etc.) ──────────── */
+* {
   scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+*::-webkit-scrollbar {
+  display: none;
+}
+/* Keep .scrollbar-none for explicit use */
+.scrollbar-none {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
 .scrollbar-none::-webkit-scrollbar {
   display: none;
