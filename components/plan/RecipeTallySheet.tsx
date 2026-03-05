@@ -80,90 +80,98 @@ export function RecipeTallySheet({
         onClick={onClose}
       />
 
-      {/* Sheet */}
+      {/* Outer wrapper — owns drag + position only, no background */}
       <motion.div
         drag="y"
         dragConstraints={{ top: 0 }}
-        dragElastic={0.2}
-        onDragEnd={(_e, info) => { if (info.offset.y > 120) onClose(); }}
+        dragElastic={{ top: 0.08, bottom: 0 }}
+        onDragEnd={(_e, info) => {
+          if (info.offset.y > 100 || info.velocity.y > 400) onClose();
+        }}
         initial={{ y: '100%' }}
         animate={{ y: 0 }}
         exit={{ y: '100%' }}
-        transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-        className="fixed bottom-0 left-0 right-0 z-50 flex max-h-[80vh] flex-col rounded-t-2xl border-t border-slate-700 bg-slate-900 shadow-2xl"
+        transition={{ type: 'spring', damping: 28, stiffness: 250 }}
+        className="fixed inset-x-0 bottom-0 z-50"
       >
-        {/* Handle */}
-        <div className="flex cursor-grab justify-center pt-3 pb-1 active:cursor-grabbing">
-          <div className="h-1 w-10 rounded-full bg-slate-600" />
-        </div>
+        {/* Visible sheet card */}
+        <div className="flex max-h-[82vh] flex-col rounded-t-2xl border-t border-slate-700 bg-slate-900 shadow-2xl">
+          {/* Handle */}
+          <div className="flex cursor-grab justify-center pt-3 pb-1 active:cursor-grabbing">
+            <div className="h-1 w-10 rounded-full bg-slate-600" />
+          </div>
 
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-slate-800 px-4 py-3">
-          <div>
-            <p className="text-sm font-semibold text-white">Pick a dinner</p>
-            {totalMembers > 0 && hasVotes && (
-              <p className="text-xs text-slate-500">{totalMembers} household member{totalMembers !== 1 ? 's' : ''} voted</p>
+          {/* Header */}
+          <div className="flex items-center justify-between border-b border-slate-800 px-4 py-3">
+            <div>
+              <p className="text-sm font-semibold text-white">Pick a dinner</p>
+              {totalMembers > 0 && hasVotes && (
+                <p className="text-xs text-slate-500">{totalMembers} household member{totalMembers !== 1 ? 's' : ''} voted</p>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-full p-1.5 text-slate-500 hover:bg-slate-800 hover:text-slate-300"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+
+          {/* Recipe list */}
+          <div className="overflow-y-auto pb-10">
+            {hasVotes ? (
+              groups.map((group) => (
+                <div key={group.label}>
+                  <p className="sticky top-0 bg-slate-900 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    {group.label}
+                  </p>
+                  {group.items.map(({ recipe, superCount, yesCount }) => (
+                    <button
+                      key={recipe.id}
+                      type="button"
+                      onClick={() => handlePick(recipe.id)}
+                      className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-slate-800 active:bg-slate-700"
+                    >
+                      <span
+                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl text-xl"
+                        style={{ backgroundColor: recipe.bg_color }}
+                      >
+                        {recipe.emoji}
+                      </span>
+                      <span className="flex-1 text-sm font-medium text-white">{recipe.title}</span>
+                      <span className="flex items-center gap-2 text-xs text-slate-400">
+                        {superCount > 0 && <span>⭐{superCount}</span>}
+                        {yesCount > 0 && <span>👍{yesCount}</span>}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              ))
+            ) : (
+              // Flat list if no votes yet
+              scored.map(({ recipe }) => (
+                <button
+                  key={recipe.id}
+                  type="button"
+                  onClick={() => handlePick(recipe.id)}
+                  className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-slate-800 active:bg-slate-700"
+                >
+                  <span
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl text-xl"
+                    style={{ backgroundColor: recipe.bg_color }}
+                  >
+                    {recipe.emoji}
+                  </span>
+                  <span className="flex-1 text-sm font-medium text-white">{recipe.title}</span>
+                </button>
+              ))
             )}
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-full p-1.5 text-slate-500 hover:bg-slate-800 hover:text-slate-300"
-          >
-            <X className="h-4 w-4" />
-          </button>
         </div>
 
-        {/* Recipe list */}
-        <div className="overflow-y-auto pb-10">
-          {hasVotes ? (
-            groups.map((group) => (
-              <div key={group.label}>
-                <p className="sticky top-0 bg-slate-900 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  {group.label}
-                </p>
-                {group.items.map(({ recipe, superCount, yesCount }) => (
-                  <button
-                    key={recipe.id}
-                    type="button"
-                    onClick={() => handlePick(recipe.id)}
-                    className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-slate-800 active:bg-slate-700"
-                  >
-                    <span
-                      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl text-xl"
-                      style={{ backgroundColor: recipe.bg_color }}
-                    >
-                      {recipe.emoji}
-                    </span>
-                    <span className="flex-1 text-sm font-medium text-white">{recipe.title}</span>
-                    <span className="flex items-center gap-2 text-xs text-slate-400">
-                      {superCount > 0 && <span>⭐{superCount}</span>}
-                      {yesCount > 0 && <span>👍{yesCount}</span>}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            ))
-          ) : (
-            // Flat list if no votes yet
-            scored.map(({ recipe }) => (
-              <button
-                key={recipe.id}
-                type="button"
-                onClick={() => handlePick(recipe.id)}
-                className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-slate-800 active:bg-slate-700"
-              >
-                <span
-                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl text-xl"
-                  style={{ backgroundColor: recipe.bg_color }}
-                >
-                  {recipe.emoji}
-                </span>
-                <span className="flex-1 text-sm font-medium text-white">{recipe.title}</span>
-              </button>
-            ))
-          )}
-        </div>
+        {/* Bottomless extension — prevents any gap showing below the sheet when dragging down */}
+        <div className="h-[50vh] bg-slate-900" />
       </motion.div>
     </>
   );

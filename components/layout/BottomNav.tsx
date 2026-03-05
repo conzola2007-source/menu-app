@@ -14,10 +14,9 @@ const TABS = [
     prefixes: ['/household'],
   },
   {
-    href: '/planned',
-    label: 'Planned',
+    href: '/vote',
+    label: 'Plan',
     icon: CalendarDays,
-    // active for the new planned hub and all old planning/flow routes
     prefixes: ['/planned', '/week', '/vote', '/plan', '/grocery', '/recipes'],
   },
   {

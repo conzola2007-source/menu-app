@@ -38,14 +38,20 @@ export default function VotePage() {
     }
   }, [voteData, localQueue, isRevoteMode]);
 
-  // Track revote session in sessionStorage so planned page can redirect back
+  // If a revote session was in progress when the user switched tabs, restore it.
+  // The tab now links to /vote (no query param), so we check sessionStorage here
+  // and redirect to /vote?mode=revote before anything else renders.
+  useEffect(() => {
+    if (!isRevoteMode && sessionStorage.getItem('revote_in_progress') === 'true') {
+      router.replace('/vote?mode=revote');
+    }
+  }, [isRevoteMode, router]);
+
+  // Keep the sessionStorage flag alive while actively in revote mode
   useEffect(() => {
     if (isRevoteMode) {
       sessionStorage.setItem('revote_in_progress', 'true');
     }
-    return () => {
-      // Don't clear on unmount — let the planned page or completion clear it
-    };
   }, [isRevoteMode]);
 
   const isLoading = householdLoading || voteLoading;
