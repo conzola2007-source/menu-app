@@ -24,6 +24,7 @@ export default function JoinHouseholdPage() {
   const queryClient = useQueryClient();
 
   const [code, setCode] = useState(searchParams.get('code') ?? '');
+  const visitDays = parseInt(searchParams.get('visit') ?? '0', 10) || 0;
   const [preview, setPreview] = useState<HouseholdPreview | null>(null);
   const [lookupError, setLookupError] = useState('');
   const [joinError, setJoinError] = useState('');
@@ -101,9 +102,18 @@ export default function JoinHouseholdPage() {
     // user_id is set from the authenticated session. The RLS policy on
     // household_members must enforce auth.uid() = user_id so the client
     // cannot spoof membership for another user.
+    const visitExpiresAt = visitDays > 0
+      ? new Date(Date.now() + visitDays * 24 * 60 * 60 * 1000).toISOString()
+      : null;
+
     const { error } = await supabase
       .from('household_members')
-      .insert({ household_id: preview.id, user_id: user.id, role: 'member' } as never);
+      .insert({
+        household_id: preview.id,
+        user_id: user.id,
+        role: 'member',
+        ...(visitExpiresAt ? { visit_expires_at: visitExpiresAt } : {}),
+      } as never);
 
     if (error) {
       // Log the real error server-side; show a safe message to the user
@@ -114,7 +124,7 @@ export default function JoinHouseholdPage() {
     }
 
     await queryClient.invalidateQueries({ queryKey: queryKeys.household.current() });
-    router.push('/week');
+    router.push('/planned');
   }
 
   return (
@@ -167,6 +177,11 @@ export default function JoinHouseholdPage() {
                 <p className="mt-0.5 text-sm text-slate-400">
                   {preview.memberCount} member{preview.memberCount !== 1 ? 's' : ''}
                 </p>
+                {visitDays > 0 && (
+                  <p className="mt-2 rounded-lg bg-amber-500/10 px-2 py-1 text-xs text-amber-300">
+                    Visitor access — expires in {visitDays} {visitDays === 1 ? 'day' : 'days'}
+                  </p>
+                )}
               </div>
             )}
 

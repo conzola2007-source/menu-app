@@ -9,11 +9,13 @@ import { InviteCodeDisplay } from '@/components/household/InviteCodeDisplay';
 import { MemberList } from '@/components/household/MemberList';
 import { MemberRecipes } from '@/components/household/MemberRecipes';
 import { IngredientList } from '@/components/household/IngredientList';
+import { VisitInviteSheet } from '@/components/household/VisitInviteSheet';
 
 export default function HouseholdPage() {
   const { data: membership, isLoading } = useHousehold();
   const user = useAuthStore((s) => s.user);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [showVisitInvite, setShowVisitInvite] = useState(false);
 
   if (isLoading) {
     return (
@@ -83,9 +85,18 @@ export default function HouseholdPage() {
       <div className="flex flex-col gap-5 px-4 pt-5">
         {/* Invite code */}
         <section>
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-            Invite Code
-          </p>
+          <div className="mb-2 flex items-center justify-between">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Invite
+            </p>
+            <button
+              type="button"
+              onClick={() => setShowVisitInvite(true)}
+              className="text-xs text-slate-400 hover:text-white"
+            >
+              + Invite as visitor
+            </button>
+          </div>
           <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
             <InviteCodeDisplay code={membership.household.invite_code} />
           </div>
@@ -121,6 +132,14 @@ export default function HouseholdPage() {
           currentUserId={user.id}
           householdId={membership.household.id}
           onClose={() => setSelectedUserId(null)}
+        />
+      )}
+
+      {/* Visit invite sheet */}
+      {showVisitInvite && (
+        <VisitInviteSheet
+          inviteCode={membership.household.invite_code}
+          onClose={() => setShowVisitInvite(false)}
         />
       )}
     </div>
