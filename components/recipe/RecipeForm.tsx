@@ -33,6 +33,7 @@ import {
   FOOD_EMOJIS, BG_COLORS,
 } from '@/lib/recipe-constants';
 import type { RecipeDetail } from '@/hooks/useRecipes';
+import { useHousehold } from '@/hooks/useHousehold';
 
 // ─── Zod schema ───────────────────────────────────────────────────────────────
 
@@ -170,6 +171,9 @@ interface RecipeFormProps {
 }
 
 export function RecipeForm({ initial, onSubmit, submitLabel = 'Save recipe' }: RecipeFormProps) {
+  const { data: membership } = useHousehold();
+  const householdId = (membership as unknown as { household?: { id: string } } | null)?.household?.id ?? null;
+
   const [showAdvancePrepNote, setShowAdvancePrepNote] = useState(
     (initial?.advance_prep_days ?? 0) > 0
   );
@@ -475,16 +479,15 @@ export function RecipeForm({ initial, onSubmit, submitLabel = 'Save recipe' }: R
         </Label>
         <IngredientBuilder
           fields={ingFields}
-          register={register}
+          control={control}
           errors={errors}
+          householdId={householdId}
           onAdd={() => appendIng(defaultIngredient())}
           onRemove={(i) => removeIng(i)}
           onMove={(from, to) => {
-            // useFieldArray.move is synchronous — call it directly
             const newFields = arrayMove(ingFields, from, to);
-            // We have to move in reverse to maintain correct indices
             moveIng(from, to);
-            void newFields; // avoid lint unused
+            void newFields;
           }}
         />
       </section>

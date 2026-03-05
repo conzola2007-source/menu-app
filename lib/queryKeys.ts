@@ -24,4 +24,7 @@ export const queryKeys = {
     week: (householdId: string, weekStart: string) =>
       ['grocery', householdId, weekStart] as const,
   },
+  ingredients: {
+    all: (householdId: string) => ['ingredients', householdId] as const,
+  },
 } as const;

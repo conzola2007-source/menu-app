@@ -20,9 +20,11 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { GripVertical, Trash2, Plus } from 'lucide-react';
-import type { UseFormRegister, FieldErrors, FieldArrayWithId } from 'react-hook-form';
+import { useController, type Control, type FieldErrors, type FieldArrayWithId } from 'react-hook-form';
 import { INGREDIENT_UNITS } from '@/lib/recipe-constants';
+import { IngredientSearch } from './IngredientSearch';
 import type { RecipeFormValues } from './RecipeForm';
+import type { IngredientUnit } from '@/lib/supabase/types';
 
 type IngredientField = FieldArrayWithId<RecipeFormValues, 'ingredients', 'id'>;
 
@@ -31,13 +33,14 @@ type IngredientField = FieldArrayWithId<RecipeFormValues, 'ingredients', 'id'>;
 interface IngredientRowProps {
   field: IngredientField;
   index: number;
-  register: UseFormRegister<RecipeFormValues>;
+  control: Control<RecipeFormValues>;
   errors: FieldErrors<RecipeFormValues>;
+  householdId: string | null;
   onRemove: (index: number) => void;
   canRemove: boolean;
 }
 
-function IngredientRow({ field, index, register, errors, onRemove, canRemove }: IngredientRowProps) {
+function IngredientRow({ field, index, control, errors, householdId, onRemove, canRemove }: IngredientRowProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: field.id,
   });
@@ -49,6 +52,17 @@ function IngredientRow({ field, index, register, errors, onRemove, canRemove }: 
   };
 
   const rowErrors = errors.ingredients?.[index];
+
+  // Controlled name field so we can wire up IngredientSearch
+  const { field: nameField } = useController({ control, name: `ingredients.${index}.name` });
+  const { field: unitField } = useController({ control, name: `ingredients.${index}.unit` });
+  const { field: amountField } = useController({ control, name: `ingredients.${index}.amount` });
+  const { field: storageField } = useController({ control, name: `ingredients.${index}.storage_location` });
+
+  function handleIngredientSelect(name: string, unit?: IngredientUnit) {
+    nameField.onChange(name);
+    if (unit) unitField.onChange(unit);
+  }
 
   return (
     <div ref={setNodeRef} style={style} className="flex items-start gap-2">
@@ -65,12 +79,12 @@ function IngredientRow({ field, index, register, errors, onRemove, canRemove }: 
 
       {/* Fields grid */}
       <div className="grid flex-1 grid-cols-6 gap-2">
-        {/* Name — spans 3 of 6 cols on mobile, 3 on all */}
+        {/* Name — spans 6 cols on mobile, 3 on sm */}
         <div className="col-span-6 sm:col-span-3">
-          <input
-            {...register(`ingredients.${index}.name`)}
-            placeholder="Ingredient name"
-            className="w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-1.5 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-primary"
+          <IngredientSearch
+            householdId={householdId}
+            value={nameField.value as string}
+            onChange={handleIngredientSelect}
           />
           {rowErrors?.name && (
             <p className="mt-0.5 text-xs text-red-400">{rowErrors.name.message}</p>
@@ -80,11 +94,12 @@ function IngredientRow({ field, index, register, errors, onRemove, canRemove }: 
         {/* Amount — 2 of 6 */}
         <div className="col-span-2">
           <input
-            {...register(`ingredients.${index}.amount`, { valueAsNumber: true })}
             type="number"
             step="0.1"
             min="0"
             placeholder="Qty"
+            value={amountField.value as number}
+            onChange={(e) => amountField.onChange(parseFloat(e.target.value))}
             className="w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-1.5 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-primary"
           />
           {rowErrors?.amount && (
@@ -95,7 +110,8 @@ function IngredientRow({ field, index, register, errors, onRemove, canRemove }: 
         {/* Unit — 2 of 6 */}
         <div className="col-span-2">
           <select
-            {...register(`ingredients.${index}.unit`)}
+            value={unitField.value as string}
+            onChange={(e) => unitField.onChange(e.target.value)}
             className="w-full rounded-lg border border-slate-600 bg-slate-900 px-2 py-1.5 text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary"
           >
             {INGREDIENT_UNITS.map((u) => (
@@ -109,7 +125,8 @@ function IngredientRow({ field, index, register, errors, onRemove, canRemove }: 
         {/* Storage — full row on mobile, 3 of 6 on sm */}
         <div className="col-span-3 sm:col-span-3">
           <select
-            {...register(`ingredients.${index}.storage_location`)}
+            value={storageField.value as string}
+            onChange={(e) => storageField.onChange(e.target.value)}
             className="w-full rounded-lg border border-slate-600 bg-slate-900 px-2 py-1.5 text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary"
           >
             <option value="pantry">Pantry</option>
@@ -138,8 +155,9 @@ function IngredientRow({ field, index, register, errors, onRemove, canRemove }: 
 
 interface IngredientBuilderProps {
   fields: IngredientField[];
-  register: UseFormRegister<RecipeFormValues>;
+  control: Control<RecipeFormValues>;
   errors: FieldErrors<RecipeFormValues>;
+  householdId: string | null;
   onAdd: () => void;
   onRemove: (index: number) => void;
   onMove: (from: number, to: number) => void;
@@ -147,8 +165,9 @@ interface IngredientBuilderProps {
 
 export function IngredientBuilder({
   fields,
-  register,
+  control,
   errors,
+  householdId,
   onAdd,
   onRemove,
   onMove,
@@ -180,8 +199,9 @@ export function IngredientBuilder({
               key={field.id}
               field={field}
               index={index}
-              register={register}
+              control={control}
               errors={errors}
+              householdId={householdId}
               onRemove={onRemove}
               canRemove={fields.length > 1}
             />

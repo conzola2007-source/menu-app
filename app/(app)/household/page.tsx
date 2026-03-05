@@ -8,6 +8,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { InviteCodeDisplay } from '@/components/household/InviteCodeDisplay';
 import { MemberList } from '@/components/household/MemberList';
 import { MemberRecipes } from '@/components/household/MemberRecipes';
+import { IngredientList } from '@/components/household/IngredientList';
 
 export default function HouseholdPage() {
   const { data: membership, isLoading } = useHousehold();
@@ -104,6 +105,9 @@ export default function HouseholdPage() {
             />
           </div>
         </section>
+
+        {/* Ingredient library */}
+        <IngredientList householdId={membership.household.id} />
       </div>
 
       {/* Member recipes sheet */}
