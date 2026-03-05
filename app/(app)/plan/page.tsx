@@ -179,7 +179,7 @@ export default function PlanPage() {
     return (
       <div className="flex min-h-screen flex-col bg-slate-900 pb-24">
         <header className="flex items-center gap-3 border-b border-slate-800 px-4 py-3">
-          <button type="button" onClick={() => router.back()} className="text-slate-400 hover:text-white">
+          <button type="button" onClick={() => router.replace('/vote')} className="text-slate-400 hover:text-white">
             <ChevronLeft className="h-5 w-5" />
           </button>
           <h1 className="text-base font-bold text-white">Allocate meals</h1>
@@ -213,7 +213,7 @@ export default function PlanPage() {
       <div className="sticky top-0 z-20 border-b border-slate-800 bg-slate-900/95 px-4 pb-3 pt-safe backdrop-blur">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <button type="button" onClick={() => router.back()} className="text-slate-400 hover:text-white">
+            <button type="button" onClick={() => router.replace('/vote')} className="text-slate-400 hover:text-white">
               <ChevronLeft className="h-5 w-5" />
             </button>
             <h1 className="text-base font-bold text-white">Meal Plan</h1>

@@ -30,12 +30,16 @@ export default function VotePage() {
   const [localQueue, setLocalQueue] = useState<VoteRecipe[] | null>(null);
   const topCardRef = useRef<SwipeCardHandle>(null);
 
-  // Reset queue whenever mode changes so revote always starts fresh.
-  // Without this, navigating /vote → /vote?mode=revote keeps localQueue=[]
-  // from the previous session, making allVotedByMe immediately true and
-  // skipping straight past the card stack.
+  // Guards against the race where localQueue is still [] (from finishing the
+  // original vote) when isRevoteMode first becomes true. The completion redirect
+  // must only fire once the queue has been loaded WITH ITEMS, not on the brief
+  // intermediate state before the mode-change reset applies.
+  const revoteQueueWasLoaded = useRef(false);
+
+  // Reset queue and tracking ref whenever mode changes so revote always starts fresh.
   useEffect(() => {
     setLocalQueue(null);
+    revoteQueueWasLoaded.current = false;
   }, [isRevoteMode]);
 
   // Initialise queue from server data once it's been reset (or on first load)
@@ -45,26 +49,31 @@ export default function VotePage() {
     }
   }, [voteData, localQueue, isRevoteMode]);
 
-  // Set sessionStorage flag only once the queue is actually loaded with items.
-  // Avoids a race where the flag gets re-set by this effect after the
-  // completion handler tries to clear it.
+  // Once the revote queue has actual items, mark the session active and set the flag.
   useEffect(() => {
     if (isRevoteMode && localQueue !== null && localQueue.length > 0) {
+      revoteQueueWasLoaded.current = true;
       sessionStorage.setItem('revote_in_progress', 'true');
     }
   }, [isRevoteMode, localQueue]);
 
-  // Redirect back to /vote?mode=revote if the user switched tabs mid-revote
+  // Restore revote session when user taps the Plan tab after switching away
   useEffect(() => {
     if (!isRevoteMode && sessionStorage.getItem('revote_in_progress') === 'true') {
       router.replace('/vote?mode=revote');
     }
   }, [isRevoteMode, router]);
 
-  // When revote is actually complete (queue explicitly emptied, not just uninitialised),
-  // clear the flag and navigate to meal allocation.
+  // Navigate to /plan only once the queue has been loaded AND then drained.
+  // revoteQueueWasLoaded.current prevents firing when isRevoteMode just
+  // became true and localQueue is still [] from the previous vote session.
   useEffect(() => {
-    if (isRevoteMode && localQueue !== null && localQueue.length === 0) {
+    if (
+      isRevoteMode &&
+      localQueue !== null &&
+      localQueue.length === 0 &&
+      revoteQueueWasLoaded.current
+    ) {
       sessionStorage.removeItem('revote_in_progress');
       router.replace('/plan');
     }
