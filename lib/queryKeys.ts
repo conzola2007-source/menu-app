@@ -60,4 +60,16 @@ export const queryKeys = {
   shoppingAttendance: {
     list: (listId: string) => ['shoppingAttendance', listId] as const,
   },
+  recipeRatings: {
+    list: (recipeId: string, householdId: string) => ['recipeRatings', recipeId, householdId] as const,
+  },
+  recipeFavourites: {
+    list: (householdId: string) => ['recipeFavourites', householdId] as const,
+  },
+  mealHistory: {
+    list: (householdId: string) => ['mealHistory', householdId] as const,
+  },
+  analytics: {
+    get: (householdId: string) => ['analytics', householdId] as const,
+  },
 } as const;

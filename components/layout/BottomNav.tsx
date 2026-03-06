@@ -17,7 +17,7 @@ const TABS = [
     href: '/vote',
     label: 'Plan',
     icon: CalendarDays,
-    prefixes: ['/planned', '/week', '/vote', '/plan', '/grocery', '/recipes'],
+    prefixes: ['/planned', '/week', '/vote', '/plan', '/grocery', '/recipes', '/history'],
   },
   {
     href: '/account',

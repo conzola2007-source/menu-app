@@ -3,11 +3,14 @@
 import { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Pencil, Clock, ChefHat, Users, AlertTriangle, UtensilsCrossed } from 'lucide-react';
+import { ArrowLeft, Pencil, Clock, ChefHat, Users, AlertTriangle, UtensilsCrossed, Heart } from 'lucide-react';
 import { useRecipeDetail } from '@/hooks/useRecipes';
 import { useHousehold } from '@/hooks/useHousehold';
 import { useAuthStore } from '@/stores/authStore';
 import { useRecipeCooks, useAddSelfAsCook, useRemoveSelfAsCook } from '@/hooks/useRecipeCooks';
+import { useRecipeRatings, useUpsertRating } from '@/hooks/useRecipeRatings';
+import { useRecipeFavourites, useToggleFavourite } from '@/hooks/useRecipeFavourites';
+import { RatingStars } from '@/components/recipe/RatingStars';
 import { formatQuantity } from '@/lib/utils';
 import { CUISINE_LABELS, STORAGE_LABELS } from '@/lib/recipe-constants';
 
@@ -22,6 +25,11 @@ export default function RecipeDetailPage() {
   const { data: cooks = [] } = useRecipeCooks(id ?? null, householdId ?? null);
   const addSelfAsCook = useAddSelfAsCook();
   const removeSelfAsCook = useRemoveSelfAsCook();
+
+  const { data: ratings = [] } = useRecipeRatings(id ?? null, householdId ?? null);
+  const upsertRating = useUpsertRating();
+  const { data: favourites = [] } = useRecipeFavourites(householdId ?? null);
+  const toggleFavourite = useToggleFavourite();
 
   // Servings scaler
   const [scaledServings, setScaledServings] = useState<number | null>(null);
@@ -70,6 +78,12 @@ export default function RecipeDetailPage() {
 
   const isCook = cooks.some((c) => c.user_id === user?.id);
   const members = membership?.members ?? [];
+  const isFav = favourites.some((f) => f.recipe_id === id);
+  const myRating = ratings.find((r) => r.user_id === user?.id);
+  const avgStars =
+    ratings.length > 0
+      ? Math.round((ratings.reduce((s, r) => s + r.stars, 0) / ratings.length) * 10) / 10
+      : null;
 
   const totalTime = recipe.prep_time_min + recipe.cook_time_min;
 
@@ -92,16 +106,34 @@ export default function RecipeDetailPage() {
           <ArrowLeft className="h-5 w-5" />
         </button>
 
-        {/* Edit button */}
-        {canEdit && (
-          <Link
-            href={`/recipes/${recipe.id}/edit`}
-            className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full bg-black/30 text-white backdrop-blur-sm"
-            aria-label="Edit recipe"
-          >
-            <Pencil className="h-4 w-4" />
-          </Link>
-        )}
+        {/* Right buttons */}
+        <div className="absolute right-4 top-4 flex items-center gap-2">
+          {/* Favourite */}
+          {householdId && user && (
+            <button
+              type="button"
+              onClick={() =>
+                toggleFavourite.mutate({ recipeId: recipe.id, householdId, isFav })
+              }
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-black/30 backdrop-blur-sm"
+              aria-label={isFav ? 'Remove from favourites' : 'Add to favourites'}
+            >
+              <Heart
+                className={`h-4 w-4 transition-colors ${isFav ? 'fill-red-400 text-red-400' : 'text-white'}`}
+              />
+            </button>
+          )}
+          {/* Edit */}
+          {canEdit && (
+            <Link
+              href={`/recipes/${recipe.id}/edit`}
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-black/30 text-white backdrop-blur-sm"
+              aria-label="Edit recipe"
+            >
+              <Pencil className="h-4 w-4" />
+            </Link>
+          )}
+        </div>
       </div>
 
       <div className="px-4 pt-4">
@@ -288,6 +320,58 @@ export default function RecipeDetailPage() {
                     I can cook this too
                   </button>
                 )}
+              </div>
+            )}
+          </section>
+        )}
+
+        {/* Ratings */}
+        {householdId && (
+          <section className="mt-6">
+            <div className="flex items-baseline gap-2">
+              <h2 className="text-base font-semibold text-white">Ratings</h2>
+              {avgStars != null && (
+                <span className="text-sm text-amber-400 font-medium">
+                  {avgStars.toFixed(1)} ★ · {ratings.length} rating{ratings.length !== 1 ? 's' : ''}
+                </span>
+              )}
+            </div>
+
+            {/* My rating */}
+            {user && (
+              <div className="mt-3 flex items-center gap-3 rounded-xl border border-slate-700 bg-slate-800 px-4 py-3">
+                <span className="text-sm text-slate-300">Your rating</span>
+                <div className="ml-auto">
+                  <RatingStars
+                    value={myRating?.stars ?? 0}
+                    onChange={(stars) => {
+                      if (!id || !householdId) return;
+                      if (stars === 0) return; // toggling off handled by tap same star
+                      upsertRating.mutate({ recipeId: id, householdId, stars });
+                    }}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Others' ratings */}
+            {ratings.filter((r) => r.user_id !== user?.id).length > 0 && (
+              <div className="mt-2 flex flex-col divide-y divide-slate-800 rounded-xl border border-slate-800">
+                {ratings
+                  .filter((r) => r.user_id !== user?.id)
+                  .map((r) => {
+                    const member = members.find((m) => m.user_id === r.user_id);
+                    const name = member?.profile.display_name ?? 'Member';
+                    return (
+                      <div key={r.id} className="flex items-center gap-3 px-4 py-2.5">
+                        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-700 text-xs font-bold text-white">
+                          {name.charAt(0).toUpperCase()}
+                        </span>
+                        <span className="flex-1 text-xs text-slate-400">{name}</span>
+                        <RatingStars value={r.stars} readonly size="sm" />
+                      </div>
+                    );
+                  })}
               </div>
             )}
           </section>

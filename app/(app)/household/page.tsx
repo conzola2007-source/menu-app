@@ -10,6 +10,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { useRemoveMember } from '@/hooks/useJoinRequests';
 import { useJoinRequests } from '@/hooks/useJoinRequests';
 import { useMySuggestions, useSubmitSuggestion } from '@/hooks/useSuggestions';
+import { useHouseholdAnalytics } from '@/hooks/useMealHistory';
 import { InviteCodeDisplay } from '@/components/household/InviteCodeDisplay';
 import { MemberList } from '@/components/household/MemberList';
 import { MemberRecipes } from '@/components/household/MemberRecipes';
@@ -55,6 +56,8 @@ export default function HouseholdPage() {
   const [kickingUserId,    setKickingUserId]    = useState<string | null>(null);
   const [suggestionText,   setSuggestionText]   = useState('');
   const [suggestionSent,   setSuggestionSent]   = useState(false);
+
+  const { data: analytics } = useHouseholdAnalytics(membership?.household.id ?? null);
 
   const bellCount = currentUserIsHead ? joinRequests.length : 0;
 
@@ -190,10 +193,93 @@ export default function HouseholdPage() {
 
         {/* ── Analytics ───────────────────────────────────────────────────── */}
         {activeTab === 'analytics' && (
-          <div className="flex flex-col items-center justify-center py-20 text-center">
-            <span className="text-5xl">📊</span>
-            <p className="mt-3 font-medium text-white">Analytics coming soon</p>
-            <p className="mt-1 text-sm text-slate-500">Meal history, top recipes, and more.</p>
+          <div className="flex flex-col gap-4">
+            {/* Total meals stat */}
+            <div className="flex items-center justify-between rounded-2xl border border-slate-800 bg-slate-900 px-4 py-3">
+              <span className="text-sm text-slate-400">Total meals cooked</span>
+              <span className="text-lg font-bold text-white">
+                {analytics?.total_meals ?? 0}
+              </span>
+            </div>
+
+            {/* Top recipes */}
+            {analytics?.top_recipes && analytics.top_recipes.length > 0 && (
+              <section>
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Most cooked
+                </p>
+                <div className="flex flex-col divide-y divide-slate-800 rounded-2xl border border-slate-800 bg-slate-900">
+                  {analytics.top_recipes.map((r, i) => (
+                    <Link
+                      key={r.id}
+                      href={`/recipes/${r.id}`}
+                      className="flex items-center gap-3 px-4 py-3 hover:bg-slate-800/50 transition-colors"
+                    >
+                      <span className="text-xs font-bold text-slate-600 w-4">#{i + 1}</span>
+                      <span
+                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-base"
+                        style={{ backgroundColor: r.bg_color }}
+                      >
+                        {r.emoji}
+                      </span>
+                      <span className="flex-1 truncate text-sm font-medium text-white">
+                        {r.title}
+                      </span>
+                      <div className="flex items-center gap-2 shrink-0">
+                        {r.avg_stars != null && (
+                          <span className="text-xs text-amber-400">{r.avg_stars.toFixed(1)} ★</span>
+                        )}
+                        <span className="text-xs text-slate-500">×{r.cook_count}</span>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {/* Top chefs */}
+            {analytics?.top_chefs && analytics.top_chefs.length > 0 && (
+              <section>
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Chef leaderboard
+                </p>
+                <div className="flex flex-col divide-y divide-slate-800 rounded-2xl border border-slate-800 bg-slate-900">
+                  {analytics.top_chefs.map((chef, i) => (
+                    <div key={chef.user_id} className="flex items-center gap-3 px-4 py-3">
+                      <span className="text-xs font-bold text-slate-600 w-4">#{i + 1}</span>
+                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/20 text-sm font-bold text-primary">
+                        {chef.display_name.charAt(0).toUpperCase()}
+                      </span>
+                      <span className="flex-1 text-sm font-medium text-white">
+                        {chef.display_name}
+                      </span>
+                      <span className="text-xs text-slate-500">{chef.meals_cooked} meals</span>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {/* Empty state */}
+            {(!analytics || analytics.total_meals === 0) && (
+              <div className="flex flex-col items-center justify-center py-16 text-center">
+                <span className="text-5xl">📊</span>
+                <p className="mt-3 font-medium text-white">No data yet</p>
+                <p className="mt-1 text-sm text-slate-500">
+                  Finalize meal plans to see your cooking stats.
+                </p>
+              </div>
+            )}
+
+            {/* Link to full history */}
+            {analytics && analytics.total_meals > 0 && (
+              <Link
+                href="/history"
+                className="rounded-full border border-slate-700 py-2 text-center text-sm text-slate-400 hover:text-white transition-colors"
+              >
+                View full meal history →
+              </Link>
+            )}
           </div>
         )}
 

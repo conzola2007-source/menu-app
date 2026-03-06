@@ -540,6 +540,52 @@ export interface Database {
         };
         Update: Record<string, never>;
       };
+      recipe_ratings: {
+        Row: {
+          id: string;
+          recipe_id: string;
+          household_id: string;
+          user_id: string;
+          meal_plan_slot_id: string | null;
+          stars: number;
+          comment: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          recipe_id: string;
+          household_id: string;
+          user_id: string;
+          meal_plan_slot_id?: string | null;
+          stars: number;
+          comment?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          stars?: number;
+          comment?: string | null;
+          updated_at?: string;
+        };
+      };
+      recipe_favourites: {
+        Row: {
+          id: string;
+          recipe_id: string;
+          household_id: string;
+          user_id: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          recipe_id: string;
+          household_id: string;
+          user_id: string;
+          created_at?: string;
+        };
+        Update: Record<string, never>;
+      };
     };
     Functions: {
       approve_recipe_add_request: {
@@ -565,6 +611,29 @@ export interface Database {
       finalize_meal_plan: {
         Args: { plan_id: string };
         Returns: string;
+      };
+      get_meal_history: {
+        Args: { p_household_id: string; p_limit?: number };
+        Returns: {
+          slot_id: string;
+          recipe_id: string;
+          recipe_title: string;
+          recipe_emoji: string;
+          recipe_bg_color: string;
+          slot_date: string;
+          chef_id: string | null;
+          chef_name: string | null;
+          avg_stars: number | null;
+          week_start_date: string;
+        }[];
+      };
+      get_household_analytics: {
+        Args: { p_household_id: string };
+        Returns: {
+          top_recipes: { id: string; title: string; emoji: string; bg_color: string; cook_count: number; avg_stars: number | null }[] | null;
+          top_chefs: { user_id: string; display_name: string; meals_cooked: number }[] | null;
+          total_meals: number;
+        };
       };
     };
     Enums: {
