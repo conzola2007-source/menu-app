@@ -56,12 +56,17 @@ function ItemRow({
         >
           {item.name}
         </p>
-        {(item.amount !== null || item.unit) && (
-          <p className="text-xs text-slate-500">
-            {item.amount !== null ? formatQuantity(item.amount) : ''}
-            {item.unit ? ` ${item.unit}` : ''}
-          </p>
-        )}
+        <div className="flex items-baseline gap-2">
+          {(item.amount !== null || item.unit) && (
+            <p className="text-xs text-slate-500">
+              {item.amount !== null ? formatQuantity(item.amount) : ''}
+              {item.unit ? ` ${item.unit}` : ''}
+            </p>
+          )}
+          {item.estimated_cost != null && (
+            <p className="text-xs text-slate-700">£{item.estimated_cost.toFixed(2)}</p>
+          )}
+        </div>
       </div>
 
       {/* Delete (standalone only) */}

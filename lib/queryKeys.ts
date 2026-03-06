@@ -57,4 +57,7 @@ export const queryKeys = {
   planPacks: {
     list: (planId: string) => ['planPacks', planId] as const,
   },
+  shoppingAttendance: {
+    list: (listId: string) => ['shoppingAttendance', listId] as const,
+  },
 } as const;

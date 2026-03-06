@@ -33,11 +33,14 @@ export interface GroceryListItem {
   checked: boolean;
   pantry_confirmed: boolean;
   added_by: string | null;
+  assigned_to: string | null;
+  estimated_cost: number | null;
 }
 
 export interface GroceryListData {
   list: GroceryList | null;
   items: GroceryListItem[];
+  totalEstimatedCost: number | null;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -54,6 +57,7 @@ type RawItem = {
   checked: boolean;
   pantry_confirmed: boolean;
   added_by: string | null;
+  assigned_to: string | null;
   recipe: { title: string } | { title: string }[] | null;
 };
 
@@ -76,6 +80,8 @@ function mapItem(raw: RawItem): GroceryListItem {
     checked: raw.checked,
     pantry_confirmed: raw.pantry_confirmed,
     added_by: raw.added_by,
+    assigned_to: raw.assigned_to,
+    estimated_cost: null,
   };
 }
 
@@ -135,7 +141,7 @@ export function useGroceryList(overrideWeekStart?: string) {
         .maybeSingle();
 
       const list = listRaw as unknown as GroceryList | null;
-      if (!list) return { list: null, items: [] };
+      if (!list) return { list: null, items: [], totalEstimatedCost: null };
 
       const { data: itemsRaw, error } = await supabase
         .from('grocery_items')
@@ -145,8 +151,47 @@ export function useGroceryList(overrideWeekStart?: string) {
 
       if (error) throw error;
 
-      const items = ((itemsRaw ?? []) as unknown as RawItem[]).map(mapItem);
-      return { list, items };
+      let items = ((itemsRaw ?? []) as unknown as RawItem[]).map(mapItem);
+
+      // ── Estimated cost calculation ──────────────────────────────────────────
+      const recipeIds = [...new Set(items.filter((i) => i.recipe_id).map((i) => i.recipe_id!))];
+      let totalEstimatedCost: number | null = null;
+
+      if (recipeIds.length > 0) {
+        const { data: ingredients } = await supabase
+          .from('recipe_ingredients')
+          .select('recipe_id, name, unit_cost')
+          .in('recipe_id', recipeIds);
+
+        if (ingredients && ingredients.length > 0) {
+          // Build cost map: recipe_id -> name_lower -> unit_cost
+          const costMap = new Map<string, Map<string, number>>();
+          for (const ing of ingredients as { recipe_id: string; name: string; unit_cost: number | null }[]) {
+            if (ing.unit_cost != null) {
+              if (!costMap.has(ing.recipe_id)) costMap.set(ing.recipe_id, new Map());
+              costMap.get(ing.recipe_id)!.set(ing.name.toLowerCase(), ing.unit_cost);
+            }
+          }
+
+          let total = 0;
+          let hasAnyCost = false;
+          items = items.map((item) => {
+            if (item.recipe_id && item.amount != null) {
+              const unitCost = costMap.get(item.recipe_id)?.get(item.name.toLowerCase());
+              if (unitCost != null) {
+                const cost = item.amount * unitCost;
+                hasAnyCost = true;
+                total += cost;
+                return { ...item, estimated_cost: cost };
+              }
+            }
+            return item;
+          });
+          if (hasAnyCost) totalEstimatedCost = total;
+        }
+      }
+
+      return { list, items, totalEstimatedCost };
     },
   });
 }
@@ -254,6 +299,82 @@ export function useDeleteGroceryItem() {
         qc.setQueryData<GroceryListData>(queryKey, {
           ...previous,
           items: previous.items.filter((i) => i.id !== itemId),
+        });
+      }
+      return { previous };
+    },
+    onError: (_e, _v, ctx) => {
+      if (ctx?.previous) qc.setQueryData(queryKey, ctx.previous);
+    },
+    onSettled: () => {
+      void qc.invalidateQueries({ queryKey });
+    },
+  });
+}
+
+// ─── useAssignGroceryItem ─────────────────────────────────────────────────────
+
+export function useAssignGroceryItem() {
+  const qc = useQueryClient();
+  const { data: membership } = useHousehold();
+  const householdId = membership?.household?.id ?? '';
+  const weekStart = weekStartISO();
+  const queryKey = queryKeys.grocery.week(householdId, weekStart);
+
+  return useMutation({
+    mutationFn: async ({ itemId, userId }: { itemId: string; userId: string }) => {
+      const supabase = getSupabaseClient();
+      const { error } = await supabase
+        .from('grocery_items')
+        .update({ assigned_to: userId } as never)
+        .eq('id', itemId);
+      if (error) throw error;
+    },
+    onMutate: async ({ itemId, userId }) => {
+      await qc.cancelQueries({ queryKey });
+      const previous = qc.getQueryData<GroceryListData>(queryKey);
+      if (previous) {
+        qc.setQueryData<GroceryListData>(queryKey, {
+          ...previous,
+          items: previous.items.map((i) => (i.id === itemId ? { ...i, assigned_to: userId } : i)),
+        });
+      }
+      return { previous };
+    },
+    onError: (_e, _v, ctx) => {
+      if (ctx?.previous) qc.setQueryData(queryKey, ctx.previous);
+    },
+    onSettled: () => {
+      void qc.invalidateQueries({ queryKey });
+    },
+  });
+}
+
+// ─── useUnassignGroceryItem ───────────────────────────────────────────────────
+
+export function useUnassignGroceryItem() {
+  const qc = useQueryClient();
+  const { data: membership } = useHousehold();
+  const householdId = membership?.household?.id ?? '';
+  const weekStart = weekStartISO();
+  const queryKey = queryKeys.grocery.week(householdId, weekStart);
+
+  return useMutation({
+    mutationFn: async (itemId: string) => {
+      const supabase = getSupabaseClient();
+      const { error } = await supabase
+        .from('grocery_items')
+        .update({ assigned_to: null } as never)
+        .eq('id', itemId);
+      if (error) throw error;
+    },
+    onMutate: async (itemId) => {
+      await qc.cancelQueries({ queryKey });
+      const previous = qc.getQueryData<GroceryListData>(queryKey);
+      if (previous) {
+        qc.setQueryData<GroceryListData>(queryKey, {
+          ...previous,
+          items: previous.items.map((i) => (i.id === itemId ? { ...i, assigned_to: null } : i)),
         });
       }
       return { previous };

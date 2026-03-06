@@ -498,6 +498,7 @@ export interface Database {
           checked: boolean;
           pantry_confirmed: boolean;
           added_by: string | null;
+          assigned_to: string | null;
           created_at: string;
         };
         Insert: {
@@ -512,6 +513,7 @@ export interface Database {
           checked?: boolean;
           pantry_confirmed?: boolean;
           added_by?: string | null;
+          assigned_to?: string | null;
         };
         Update: {
           name?: string;
@@ -520,7 +522,23 @@ export interface Database {
           category?: GroceryCategory;
           checked?: boolean;
           pantry_confirmed?: boolean;
+          assigned_to?: string | null;
         };
+      };
+      shopping_attendance: {
+        Row: {
+          id: string;
+          grocery_list_id: string;
+          user_id: string;
+          marked_at: string;
+        };
+        Insert: {
+          id?: string;
+          grocery_list_id: string;
+          user_id: string;
+          marked_at?: string;
+        };
+        Update: Record<string, never>;
       };
     };
     Functions: {
