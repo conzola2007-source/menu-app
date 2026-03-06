@@ -158,13 +158,12 @@ export default function GroceryPage() {
       </div>
 
       {/* ── Standalone item form (bottom sheet) ─────────────────────────────── */}
-      {showForm && (
-        <StandaloneItemForm
-          onAdd={handleAdd}
-          onClose={() => setShowForm(false)}
-          isSubmitting={addItem.isPending}
-        />
-      )}
+      <StandaloneItemForm
+        isOpen={showForm}
+        onAdd={handleAdd}
+        onClose={() => setShowForm(false)}
+        isSubmitting={addItem.isPending}
+      />
 
       {/* ── FAB ─────────────────────────────────────────────────────────────── */}
       <button

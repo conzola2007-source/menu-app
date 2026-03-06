@@ -3,8 +3,8 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { AnimatePresence, motion } from 'framer-motion';
 import { X, ChevronLeft, CalendarDays, ShoppingCart } from 'lucide-react';
+import { Sheet } from '@/components/ui/Sheet';
 import { useMealPlan, useAddSlot, useRemoveSlot, useFinalizeWeek, useUpdatePlanDuration } from '@/hooks/useMealPlan';
 import { useRecipes } from '@/hooks/useRecipes';
 import { useHousehold } from '@/hooks/useHousehold';
@@ -274,62 +274,22 @@ export default function PlanPage() {
       )}
 
       {/* Day count picker sheet */}
-      <AnimatePresence>
-        {showDayPicker && (
-          <>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm"
-              onClick={() => setShowDayPicker(false)}
-            />
-            {/* Outer wrapper — drag + position only, no background */}
-            <motion.div
-              drag="y"
-              dragConstraints={{ top: 0 }}
-              dragElastic={{ top: 0.08, bottom: 0 }}
-              onDragEnd={(_e, info) => {
-                if (info.offset.y > 100 || info.velocity.y > 400) setShowDayPicker(false);
-              }}
-              initial={{ y: '100%' }}
-              animate={{ y: 0 }}
-              exit={{ y: '100%' }}
-              transition={{ type: 'spring', damping: 28, stiffness: 250 }}
-              className="fixed inset-x-0 bottom-0 z-[60]"
-            >
-              {/* Visible card */}
-              <div className="flex flex-col rounded-t-2xl border-t border-slate-700 bg-slate-900 shadow-2xl">
-                <div className="flex cursor-grab justify-center pt-3 pb-1 active:cursor-grabbing">
-                  <div className="h-1 w-10 rounded-full bg-slate-600" />
-                </div>
-                <div className="flex items-center justify-between border-b border-slate-800 px-4 py-3">
-                  <p className="text-sm font-semibold text-white">How many days?</p>
-                  <button
-                    type="button"
-                    onClick={() => setShowDayPicker(false)}
-                    className="rounded-full p-1.5 text-slate-500 hover:bg-slate-800 hover:text-slate-300"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
-                <div className="flex flex-col items-center gap-6 px-4 py-6 pb-24">
-                  <DayCountPicker value={pendingDuration} onChange={setPendingDuration} />
-                  <button
-                    type="button"
-                    onClick={handleDayPickerConfirm}
-                    className="w-full max-w-xs rounded-2xl bg-primary px-6 py-3 text-sm font-semibold text-white"
-                  >
-                    Use {pendingDuration}-day plan
-                  </button>
-                </div>
-              </div>
-              {/* Bottomless extension — no gap when dragging down */}
-              <div className="h-[50vh] bg-slate-900" />
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
+      <Sheet
+        isOpen={showDayPicker}
+        onClose={() => setShowDayPicker(false)}
+        title="How many days?"
+      >
+        <div className="flex flex-col items-center gap-6 px-4 py-6">
+          <DayCountPicker value={pendingDuration} onChange={setPendingDuration} />
+          <button
+            type="button"
+            onClick={handleDayPickerConfirm}
+            className="w-full max-w-xs rounded-2xl bg-primary px-6 py-3 text-sm font-semibold text-white"
+          >
+            Use {pendingDuration}-day plan
+          </button>
+        </div>
+      </Sheet>
     </div>
   );
 }

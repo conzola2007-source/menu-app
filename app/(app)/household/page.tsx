@@ -3,8 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { AnimatePresence, motion } from 'framer-motion';
-import { Settings, UserPlus, LogIn, ChevronDown, Check, X, PlusCircle } from 'lucide-react';
+import { Settings, UserPlus, LogIn, ChevronDown, Check, PlusCircle } from 'lucide-react';
 import { useHousehold, useHouseholds } from '@/hooks/useHousehold';
 import { useRecipes } from '@/hooks/useRecipes';
 import { useAuthStore } from '@/stores/authStore';
@@ -14,29 +13,31 @@ import { MemberList } from '@/components/household/MemberList';
 import { MemberRecipes } from '@/components/household/MemberRecipes';
 import { IngredientList } from '@/components/household/IngredientList';
 import { VisitInviteSheet } from '@/components/household/VisitInviteSheet';
+import { Sheet } from '@/components/ui/Sheet';
 
 type Tab = 'analytics' | 'household' | 'ingredients' | 'recipes';
 
 const TABS: { id: Tab; label: string }[] = [
-  { id: 'analytics', label: 'Analytics' },
-  { id: 'household', label: 'Household' },
+  { id: 'analytics',   label: 'Analytics' },
+  { id: 'household',   label: 'Household' },
   { id: 'ingredients', label: 'Ingredients' },
-  { id: 'recipes', label: 'Recipes' },
+  { id: 'recipes',     label: 'Recipes' },
 ];
 
 export default function HouseholdPage() {
   const router = useRouter();
   const { data: membership, isLoading } = useHousehold();
-  const { data: allHouseholds = [] } = useHouseholds();
-  const { data: recipes = [] } = useRecipes();
-  const user = useAuthStore((s) => s.user);
+  const { data: allHouseholds = [] }    = useHouseholds();
+  const { data: recipes = [] }          = useRecipes();
+  const user               = useAuthStore((s) => s.user);
   const setActiveHousehold = useAuthStore((s) => s.setActiveHousehold);
-  const removeMember = useRemoveMember();
-  const [activeTab, setActiveTab] = useState<Tab>('household');
-  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const removeMember       = useRemoveMember();
+
+  const [activeTab,       setActiveTab]       = useState<Tab>('household');
+  const [selectedUserId,  setSelectedUserId]  = useState<string | null>(null);
   const [showVisitInvite, setShowVisitInvite] = useState(false);
-  const [showSwitcher, setShowSwitcher] = useState(false);
-  const [kickingUserId, setKickingUserId] = useState<string | null>(null);
+  const [showSwitcher,    setShowSwitcher]    = useState(false);
+  const [kickingUserId,   setKickingUserId]   = useState<string | null>(null);
 
   function handleKickMember(targetUserId: string) {
     if (!membership) return;
@@ -59,7 +60,7 @@ export default function HouseholdPage() {
     );
   }
 
-  // ── No household ─────────────────────────────────────────────────────────────
+  // ── No household ───────────────────────────────────────────────────────────
   if (!membership) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-6 bg-slate-900 px-6">
@@ -237,105 +238,77 @@ export default function HouseholdPage() {
         )}
       </div>
 
-      {/* Member recipes sheet */}
-      {selectedMember && user && (
-        <MemberRecipes
-          member={{
-            user_id: selectedMember.user_id,
-            name: selectedMember.profile.display_name,
-            avatarUrl: selectedMember.profile.avatar_url,
-          }}
-          currentUserId={user.id}
-          householdId={membership.household.id}
-          onClose={() => setSelectedUserId(null)}
-        />
-      )}
+      {/* ── Member recipes sheet ─────────────────────────────────────────────── */}
+      <MemberRecipes
+        isOpen={!!(selectedMember && user)}
+        member={
+          selectedMember && user
+            ? {
+                user_id:   selectedMember.user_id,
+                name:      selectedMember.profile.display_name,
+                avatarUrl: selectedMember.profile.avatar_url,
+              }
+            : null
+        }
+        currentUserId={user?.id ?? ''}
+        householdId={membership.household.id}
+        onClose={() => setSelectedUserId(null)}
+      />
 
-      {/* Visit invite sheet */}
-      {showVisitInvite && (
-        <VisitInviteSheet
-          inviteCode={membership.household.invite_code}
-          onClose={() => setShowVisitInvite(false)}
-        />
-      )}
+      {/* ── Visit invite sheet ───────────────────────────────────────────────── */}
+      <VisitInviteSheet
+        isOpen={showVisitInvite}
+        inviteCode={membership.household.invite_code}
+        onClose={() => setShowVisitInvite(false)}
+      />
 
-      {/* Household switcher sheet */}
-      <AnimatePresence>
-        {showSwitcher && (
-          <>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm"
-              onClick={() => setShowSwitcher(false)}
-            />
-            <motion.div
-              drag="y"
-              dragConstraints={{ top: 0 }}
-              dragElastic={0.2}
-              onDragEnd={(_e, info) => { if (info.offset.y > 100) setShowSwitcher(false); }}
-              initial={{ y: '100%' }}
-              animate={{ y: 0 }}
-              exit={{ y: '100%' }}
-              transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-              className="fixed bottom-0 left-0 right-0 z-50 rounded-t-2xl border-t border-slate-700 bg-slate-900 shadow-2xl"
-            >
-              <div className="flex cursor-grab justify-center pt-3 pb-1 active:cursor-grabbing">
-                <div className="h-1 w-10 rounded-full bg-slate-600" />
-              </div>
-              <div className="flex items-center justify-between border-b border-slate-800 px-4 py-3">
-                <p className="text-sm font-semibold text-white">Your households</p>
-                <button
-                  type="button"
-                  onClick={() => setShowSwitcher(false)}
-                  className="rounded-full p-1.5 text-slate-500 hover:bg-slate-800 hover:text-slate-300"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-              <div className="flex flex-col pb-10">
-                {allHouseholds.map((h) => {
-                  const isActive = h.household.id === membership.household.id;
-                  return (
-                    <button
-                      key={h.household.id}
-                      type="button"
-                      onClick={() => {
-                        setActiveHousehold(h.household.id);
-                        setShowSwitcher(false);
-                      }}
-                      className="flex items-center gap-3 px-4 py-3.5 text-left hover:bg-slate-800"
-                    >
-                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-slate-800 text-lg">
-                        🏠
-                      </span>
-                      <div className="flex-1">
-                        <p className="text-sm font-medium text-white">{h.household.name}</p>
-                        <p className="text-xs text-slate-500">{h.members.length} member{h.members.length !== 1 ? 's' : ''}</p>
-                      </div>
-                      {isActive && <Check className="h-4 w-4 text-primary" />}
-                    </button>
-                  );
-                })}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowSwitcher(false);
-                    router.push('/household/join');
-                  }}
-                  className="flex items-center gap-3 border-t border-slate-800 px-4 py-3.5 text-left hover:bg-slate-800"
-                >
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-slate-800">
-                    <PlusCircle className="h-5 w-5 text-primary" />
-                  </span>
-                  <span className="text-sm font-medium text-slate-400">Join another household</span>
-                </button>
-              </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
+      {/* ── Household switcher sheet ─────────────────────────────────────────── */}
+      <Sheet
+        isOpen={showSwitcher}
+        onClose={() => setShowSwitcher(false)}
+        title="Your households"
+      >
+        <div className="flex flex-col pb-4">
+          {allHouseholds.map((h) => {
+            const isActive = h.household.id === membership.household.id;
+            return (
+              <button
+                key={h.household.id}
+                type="button"
+                onClick={() => {
+                  setActiveHousehold(h.household.id);
+                  setShowSwitcher(false);
+                }}
+                className="flex items-center gap-3 px-4 py-3.5 text-left hover:bg-slate-800"
+              >
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-slate-800 text-lg">
+                  🏠
+                </span>
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-white">{h.household.name}</p>
+                  <p className="text-xs text-slate-500">
+                    {h.members.length} member{h.members.length !== 1 ? 's' : ''}
+                  </p>
+                </div>
+                {isActive && <Check className="h-4 w-4 text-primary" />}
+              </button>
+            );
+          })}
+          <button
+            type="button"
+            onClick={() => {
+              setShowSwitcher(false);
+              router.push('/household/join');
+            }}
+            className="flex items-center gap-3 border-t border-slate-800 px-4 py-3.5 text-left hover:bg-slate-800"
+          >
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-slate-800">
+              <PlusCircle className="h-5 w-5 text-primary" />
+            </span>
+            <span className="text-sm font-medium text-slate-400">Join another household</span>
+          </button>
+        </div>
+      </Sheet>
     </div>
   );
 }

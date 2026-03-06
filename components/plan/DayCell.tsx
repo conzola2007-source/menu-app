@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
 import type { MealPlanSlot } from '@/hooks/useMealPlan';
 import type { VoteType } from '@/lib/supabase/types';
@@ -18,7 +17,7 @@ interface DayCellProps {
   onRemove: (slotId: string) => void;
 }
 
-const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const DAY_NAMES   = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 export function DayCell({
@@ -31,9 +30,9 @@ export function DayCell({
   onAdd,
   onRemove,
 }: DayCellProps) {
-  const dayName = DAY_NAMES[date.getDay()];
-  const dayNum = date.getDate();
-  const month = MONTH_NAMES[date.getMonth()];
+  const dayName    = DAY_NAMES[date.getDay()];
+  const dayNum     = date.getDate();
+  const month      = MONTH_NAMES[date.getMonth()];
   const slotDateISO = toLocalISODate(date);
   const [showTallySheet, setShowTallySheet] = useState(false);
 
@@ -94,18 +93,16 @@ export function DayCell({
         </div>
       </div>
 
-      <AnimatePresence>
-        {showTallySheet && (
-          <RecipeTallySheet
-            recipes={recipes}
-            allVotes={allVotes}
-            totalMembers={totalMembers}
-            slotDate={slotDateISO}
-            onAdd={onAdd}
-            onClose={() => setShowTallySheet(false)}
-          />
-        )}
-      </AnimatePresence>
+      {/* RecipeTallySheet — always rendered, Sheet controls visibility */}
+      <RecipeTallySheet
+        isOpen={showTallySheet}
+        recipes={recipes}
+        allVotes={allVotes}
+        totalMembers={totalMembers}
+        slotDate={slotDateISO}
+        onAdd={onAdd}
+        onClose={() => setShowTallySheet(false)}
+      />
     </>
   );
 }
@@ -114,8 +111,8 @@ export function DayCell({
 
 /** Format a Date as YYYY-MM-DD in local time (not UTC) */
 function toLocalISODate(d: Date): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const y  = d.getFullYear();
+  const m  = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
   return `${y}-${m}-${day}`;
 }
