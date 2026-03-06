@@ -8,6 +8,8 @@ export interface HouseholdSettings {
   week_start_day: number;       // 0=Sun, 1=Mon
   dinner_time: string;          // 'HH:MM'
   default_duration_days: number;
+  reminder_hours_before: number; // hours before dinner_time to send cooking reminder
+  timezone: string;             // IANA timezone, e.g. 'Europe/London'
 }
 
 export function useHouseholdSettings(householdId: string | null) {
@@ -18,7 +20,7 @@ export function useHouseholdSettings(householdId: string | null) {
       const supabase = getSupabaseClient();
       const { data, error } = await supabase
         .from('households')
-        .select('week_start_day, dinner_time, default_duration_days')
+        .select('week_start_day, dinner_time, default_duration_days, reminder_hours_before, timezone')
         .eq('id', householdId!)
         .single();
       if (error) throw error;

@@ -44,6 +44,8 @@ export interface Database {
           week_start_day: number;
           dinner_time: string;
           default_duration_days: number;
+          reminder_hours_before: number;
+          timezone: string;
           created_at: string;
           updated_at: string;
         };
@@ -55,6 +57,8 @@ export interface Database {
           week_start_day?: number;
           dinner_time?: string;
           default_duration_days?: number;
+          reminder_hours_before?: number;
+          timezone?: string;
           created_at?: string;
           updated_at?: string;
         };
@@ -65,6 +69,8 @@ export interface Database {
           week_start_day?: number;
           dinner_time?: string;
           default_duration_days?: number;
+          reminder_hours_before?: number;
+          timezone?: string;
           updated_at?: string;
         };
       };
@@ -355,6 +361,8 @@ export interface Database {
           slot_date: string;
           chef_id: string | null;
           servings_override: number | null;
+          cooking_reminder_sent_at: string | null;
+          advance_prep_reminder_sent_at: string | null;
           created_at: string;
         };
         Insert: {
@@ -364,12 +372,16 @@ export interface Database {
           slot_date?: string;
           chef_id?: string | null;
           servings_override?: number | null;
+          cooking_reminder_sent_at?: string | null;
+          advance_prep_reminder_sent_at?: string | null;
         };
         Update: {
           recipe_id?: string;
           slot_date?: string;
           chef_id?: string | null;
           servings_override?: number | null;
+          cooking_reminder_sent_at?: string | null;
+          advance_prep_reminder_sent_at?: string | null;
         };
       };
       ingredient_library: {
@@ -656,6 +668,60 @@ export interface Database {
         Update: {
           day_offset?: number;
           sort_order?: number;
+        };
+      };
+      push_subscriptions: {
+        Row: {
+          id: string;
+          user_id: string;
+          endpoint: string;
+          p256dh: string;
+          auth: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          endpoint: string;
+          p256dh: string;
+          auth: string;
+          created_at?: string;
+        };
+        Update: {
+          p256dh?: string;
+          auth?: string;
+        };
+      };
+      notification_preferences: {
+        Row: {
+          id: string;
+          user_id: string;
+          plan_finalized: boolean;
+          cooking_reminder: boolean;
+          advance_prep_reminder: boolean;
+          join_request: boolean;
+          recipe_add_request: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          plan_finalized?: boolean;
+          cooking_reminder?: boolean;
+          advance_prep_reminder?: boolean;
+          join_request?: boolean;
+          recipe_add_request?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          plan_finalized?: boolean;
+          cooking_reminder?: boolean;
+          advance_prep_reminder?: boolean;
+          join_request?: boolean;
+          recipe_add_request?: boolean;
+          updated_at?: string;
         };
       };
     };

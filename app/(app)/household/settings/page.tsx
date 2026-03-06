@@ -57,6 +57,8 @@ export default function HouseholdSettingsPage() {
   const [weekStartDay, setWeekStartDay] = useState(1);
   const [dinnerTime, setDinnerTime] = useState('18:00');
   const [defaultDays, setDefaultDays] = useState(7);
+  const [reminderHours, setReminderHours] = useState(3);
+  const [timezone, setTimezone] = useState('Europe/London');
   const [newCategoryName, setNewCategoryName] = useState('');
   const [settingsSaved, setSettingsSaved] = useState(false);
 
@@ -65,6 +67,8 @@ export default function HouseholdSettingsPage() {
       setWeekStartDay(planSettings.week_start_day);
       setDinnerTime(planSettings.dinner_time);
       setDefaultDays(planSettings.default_duration_days);
+      setReminderHours(planSettings.reminder_hours_before ?? 3);
+      setTimezone(planSettings.timezone ?? 'Europe/London');
     }
   }, [planSettings]);
 
@@ -72,7 +76,13 @@ export default function HouseholdSettingsPage() {
     if (!householdId) return;
     await updateSettings.mutateAsync({
       householdId,
-      settings: { week_start_day: weekStartDay, dinner_time: dinnerTime, default_duration_days: defaultDays },
+      settings: {
+        week_start_day: weekStartDay,
+        dinner_time: dinnerTime,
+        default_duration_days: defaultDays,
+        reminder_hours_before: reminderHours,
+        timezone,
+      },
     });
     setSettingsSaved(true);
     setTimeout(() => setSettingsSaved(false), 2000);
@@ -311,6 +321,35 @@ export default function HouseholdSettingsPage() {
                     />
                     <span className="text-sm text-slate-400">days</span>
                   </div>
+                </div>
+
+                {/* Cooking reminder */}
+                <div>
+                  <p className="mb-2 text-sm font-medium text-white">Cooking reminder</p>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="number"
+                      min={0}
+                      max={24}
+                      value={reminderHours}
+                      onChange={(e) => setReminderHours(Math.min(24, Math.max(0, parseInt(e.target.value) || 0)))}
+                      className="w-20 rounded-xl border border-slate-700 bg-slate-800 px-3 py-2 text-center text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                    <span className="text-sm text-slate-400">hours before dinner</span>
+                  </div>
+                </div>
+
+                {/* Timezone */}
+                <div>
+                  <p className="mb-2 text-sm font-medium text-white">Household timezone</p>
+                  <input
+                    type="text"
+                    value={timezone}
+                    onChange={(e) => setTimezone(e.target.value)}
+                    placeholder="Europe/London"
+                    className="w-full rounded-xl border border-slate-700 bg-slate-800 px-4 py-2.5 text-sm text-white placeholder-slate-600 focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
+                  <p className="mt-1 text-xs text-slate-500">IANA format, e.g. Europe/London, America/New_York</p>
                 </div>
 
                 <button

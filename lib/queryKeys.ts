@@ -78,4 +78,10 @@ export const queryKeys = {
   templates: {
     list: (householdId: string) => ['templates', householdId] as const,
   },
+  pushSubscription: {
+    get: (userId: string) => ['pushSubscription', userId] as const,
+  },
+  notificationPreferences: {
+    get: (userId: string) => ['notificationPreferences', userId] as const,
+  },
 } as const;

@@ -12,6 +12,13 @@ import { queryKeys } from '@/lib/queryKeys';
 import { AvatarUpload } from '@/components/account/AvatarUpload';
 import { useJoinRequests, useAcceptJoinRequest, useDenyJoinRequest } from '@/hooks/useJoinRequests';
 import { Avatar } from '@/components/household/MemberList';
+import {
+  isPushSupported,
+  usePushSubscription,
+  useEnablePush,
+  useDisablePush,
+} from '@/hooks/usePushSubscription';
+import { useNotificationPreferences, useUpdateNotificationPreferences } from '@/hooks/useNotificationPreferences';
 
 // ─── My recipes mini-list ─────────────────────────────────────────────────────
 
@@ -147,6 +154,107 @@ function JoinRequestsSection({ householdId }: { householdId: string }) {
           );
         })}
       </div>
+    </section>
+  );
+}
+
+// ─── Notification preferences section ─────────────────────────────────────────
+
+function NotificationsSection({ userId }: { userId: string }) {
+  const { data: subscription, isLoading: subLoading } = usePushSubscription();
+  const enablePush = useEnablePush();
+  const disablePush = useDisablePush();
+  const { data: prefs } = useNotificationPreferences();
+  const updatePrefs = useUpdateNotificationPreferences();
+
+  const isSubscribed = !!subscription;
+  const pushSupported = isPushSupported();
+
+  if (!pushSupported) return null;
+
+  type PrefKey = 'plan_finalized' | 'cooking_reminder' | 'advance_prep_reminder' | 'join_request' | 'recipe_add_request';
+  const prefToggles: { key: PrefKey; label: string }[] = [
+    { key: 'plan_finalized', label: 'Week plan finalised' },
+    { key: 'cooking_reminder', label: 'Cooking reminder' },
+    { key: 'advance_prep_reminder', label: 'Advance prep reminder' },
+    { key: 'join_request', label: 'New join requests' },
+    { key: 'recipe_add_request', label: 'Recipe add requests' },
+  ];
+
+  return (
+    <section className="rounded-2xl border border-slate-800 bg-slate-900">
+      <div className="px-4 pt-4 pb-2">
+        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Notifications</p>
+      </div>
+
+      {/* Master push toggle */}
+      <div className="flex items-center justify-between border-t border-slate-800 px-4 py-3">
+        <div>
+          <p className="text-sm text-slate-300">Push notifications</p>
+          {subLoading ? null : isSubscribed ? (
+            <p className="text-xs text-green-400">Enabled on this device</p>
+          ) : (
+            <p className="text-xs text-slate-500">Disabled</p>
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            if (isSubscribed) {
+              void disablePush.mutate();
+            } else {
+              void enablePush.mutate();
+            }
+          }}
+          disabled={enablePush.isPending || disablePush.isPending || subLoading}
+          className={`relative h-6 w-11 rounded-full transition-colors disabled:opacity-50 ${
+            isSubscribed ? 'bg-primary' : 'bg-slate-700'
+          }`}
+        >
+          <span
+            className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${
+              isSubscribed ? 'translate-x-5' : 'translate-x-0.5'
+            }`}
+          />
+        </button>
+      </div>
+
+      {/* Per-type toggles (only shown when subscribed) */}
+      {isSubscribed && prefs && (
+        <>
+          {prefToggles.map(({ key, label }) => {
+            const enabled = (prefs as Record<string, unknown>)[key] !== false;
+            return (
+              <div
+                key={key}
+                className="flex items-center justify-between border-t border-slate-800 px-4 py-2.5"
+              >
+                <p className="text-sm text-slate-400">{label}</p>
+                <button
+                  type="button"
+                  onClick={() => void updatePrefs.mutate({ [key]: !enabled })}
+                  disabled={updatePrefs.isPending}
+                  className={`relative h-5 w-9 rounded-full transition-colors disabled:opacity-50 ${
+                    enabled ? 'bg-primary' : 'bg-slate-700'
+                  }`}
+                >
+                  <span
+                    className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${
+                      enabled ? 'translate-x-4' : 'translate-x-0.5'
+                    }`}
+                  />
+                </button>
+              </div>
+            );
+          })}
+        </>
+      )}
+
+      {enablePush.isError && (
+        <p className="border-t border-slate-800 px-4 py-2 text-xs text-red-400">
+          {enablePush.error instanceof Error ? enablePush.error.message : 'Failed to enable notifications'}
+        </p>
+      )}
     </section>
   );
 }
@@ -378,6 +486,9 @@ export default function AccountPage() {
             )}
           </div>
         </section>
+
+        {/* Notifications */}
+        {user && <NotificationsSection userId={user.id} />}
 
         {/* My Recipes */}
         <section>

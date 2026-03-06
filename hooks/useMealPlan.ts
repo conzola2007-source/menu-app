@@ -542,6 +542,19 @@ export function useFinalizeWeek() {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: queryKeys.mealPlan.week(householdId, weekStart) });
       void qc.invalidateQueries({ queryKey: queryKeys.grocery.week(householdId, weekStart) });
+
+      // Push notification to all household members (auth-gated server-side)
+      void fetch('/api/push/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          householdId,
+          type: 'plan_finalized',
+          title: '📋 Meal plan finalised',
+          body: 'Your household meal plan for this week is ready!',
+          url: '/plan',
+        }),
+      });
     },
   });
 }

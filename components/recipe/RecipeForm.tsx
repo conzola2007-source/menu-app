@@ -170,16 +170,18 @@ function StepRow({ fieldId, index, register, errors, onRemove, canRemove }: Step
 interface RecipeFormProps {
   /** Pre-populate for edit mode. Omit for create mode. */
   initial?: RecipeDetail;
+  /** Pre-fill from an imported recipe (create mode only, ignored when `initial` is set). */
+  importedDefaults?: Partial<RecipeFormValues>;
   onSubmit: (values: RecipeFormValues) => Promise<void>;
   submitLabel?: string;
 }
 
-export function RecipeForm({ initial, onSubmit, submitLabel = 'Save recipe' }: RecipeFormProps) {
+export function RecipeForm({ initial, importedDefaults, onSubmit, submitLabel = 'Save recipe' }: RecipeFormProps) {
   const { data: membership } = useHousehold();
   const householdId = (membership as unknown as { household?: { id: string } } | null)?.household?.id ?? null;
 
   const [showAdvancePrepNote, setShowAdvancePrepNote] = useState(
-    (initial?.advance_prep_days ?? 0) > 0
+    (initial?.advance_prep_days ?? importedDefaults?.advance_prep_days ?? 0) > 0
   );
   const [serverError, setServerError] = useState('');
 
@@ -197,20 +199,24 @@ export function RecipeForm({ initial, onSubmit, submitLabel = 'Save recipe' }: R
     defaultValues: initial
       ? recipeToFormValues(initial)
       : {
-          title: '',
-          description: '',
-          cuisine: 'other',
-          carb_type: 'none',
-          protein_type: 'none',
-          prep_time_min: 15,
-          cook_time_min: 30,
-          servings: 1,
+          title: importedDefaults?.title ?? '',
+          description: importedDefaults?.description ?? '',
+          cuisine: importedDefaults?.cuisine ?? 'other',
+          carb_type: importedDefaults?.carb_type ?? 'none',
+          protein_type: importedDefaults?.protein_type ?? 'none',
+          prep_time_min: importedDefaults?.prep_time_min ?? 15,
+          cook_time_min: importedDefaults?.cook_time_min ?? 30,
+          servings: importedDefaults?.servings ?? 1,
           emoji: '🍳',
           bg_color: BG_COLORS[0],
           advance_prep_days: 0,
           advance_prep_note: '',
-          ingredients: [defaultIngredient()],
-          steps: [defaultStep()],
+          ingredients: importedDefaults?.ingredients?.length
+            ? importedDefaults.ingredients
+            : [defaultIngredient()],
+          steps: importedDefaults?.steps?.length
+            ? importedDefaults.steps
+            : [defaultStep()],
         },
   });
 
