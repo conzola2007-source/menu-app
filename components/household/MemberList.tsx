@@ -1,10 +1,14 @@
 import { Crown, User, UserMinus } from 'lucide-react';
+import { isHead } from '@/lib/roles';
+import type { MemberRole } from '@/lib/supabase/types';
 
 interface Member {
   id: string;
   user_id: string;
-  role: 'owner' | 'member';
+  role: MemberRole;
   joined_at: string;
+  is_creator: boolean;
+  visitor_expires_at: string | null;
   profile: {
     display_name: string;
     avatar_url: string | null;
@@ -15,6 +19,8 @@ interface MemberListProps {
   members: Member[];
   currentUserId: string | null;
   onMemberClick?: (userId: string) => void;
+  isCurrentUserHead?: boolean;
+  /** @deprecated use isCurrentUserHead */
   isCurrentUserOwner?: boolean;
   onKickMember?: (userId: string) => void;
   kickingUserId?: string | null;
@@ -77,18 +83,55 @@ function formatJoinDate(dateStr: string) {
   });
 }
 
+function formatExpiry(dateStr: string) {
+  const d = new Date(dateStr);
+  const now = new Date();
+  const diffDays = Math.ceil((d.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+  if (diffDays <= 0) return 'Expired';
+  if (diffDays === 1) return 'Expires tomorrow';
+  if (diffDays <= 7) return `Expires in ${diffDays} days`;
+  return `Expires ${d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`;
+}
+
+function RoleBadge({ member }: { member: Member }) {
+  if (isHead(member.role)) {
+    return (
+      <span className="flex items-center gap-1 rounded-full bg-amber-500/20 px-2.5 py-1 text-xs font-medium text-amber-300">
+        <Crown className="h-3 w-3" />
+        Head
+      </span>
+    );
+  }
+  if (member.role === 'visitor') {
+    return (
+      <span className="rounded-full bg-blue-500/20 px-2.5 py-1 text-xs font-medium text-blue-300">
+        Visitor
+      </span>
+    );
+  }
+  return (
+    <span className="rounded-full bg-slate-700 px-2.5 py-1 text-xs text-slate-400">
+      Member
+    </span>
+  );
+}
+
 export function MemberList({
   members,
   currentUserId,
   onMemberClick,
+  isCurrentUserHead,
   isCurrentUserOwner,
   onKickMember,
   kickingUserId,
 }: MemberListProps) {
-  // Owner always first
+  const canManage = isCurrentUserHead ?? isCurrentUserOwner ?? false;
+
+  // Heads first, then members, then visitors; alphabetical within each group
   const sorted = [...members].sort((a, b) => {
-    if (a.role === 'owner' && b.role !== 'owner') return -1;
-    if (b.role === 'owner' && a.role !== 'owner') return 1;
+    const rankA = isHead(a.role) ? 0 : a.role === 'visitor' ? 2 : 1;
+    const rankB = isHead(b.role) ? 0 : b.role === 'visitor' ? 2 : 1;
+    if (rankA !== rankB) return rankA - rankB;
     return a.profile.display_name.localeCompare(b.profile.display_name);
   });
 
@@ -96,7 +139,7 @@ export function MemberList({
     <ul className="flex flex-col divide-y divide-slate-800">
       {sorted.map((member) => {
         const isMe = member.user_id === currentUserId;
-        const canKick = isCurrentUserOwner && onKickMember && member.role !== 'owner' && !isMe;
+        const canKick = canManage && onKickMember && !isHead(member.role) && !isMe;
         const isBeingKicked = kickingUserId === member.user_id;
 
         return (
@@ -108,17 +151,24 @@ export function MemberList({
             <Avatar name={member.profile.display_name} avatarUrl={member.profile.avatar_url} />
 
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 flex-wrap">
                 <span className="truncate text-sm font-medium text-white">
                   {member.profile.display_name}
                 </span>
+                {member.is_creator && (
+                  <Crown className="h-3.5 w-3.5 shrink-0 text-amber-400" />
+                )}
                 {isMe && (
                   <span className="rounded-full bg-slate-700 px-1.5 py-0.5 text-xs text-slate-400">
                     you
                   </span>
                 )}
               </div>
-              <p className="text-xs text-slate-500">Joined {formatJoinDate(member.joined_at)}</p>
+              {member.role === 'visitor' && member.visitor_expires_at ? (
+                <p className="text-xs text-blue-400">{formatExpiry(member.visitor_expires_at)}</p>
+              ) : (
+                <p className="text-xs text-slate-500">Joined {formatJoinDate(member.joined_at)}</p>
+              )}
             </div>
 
             {/* Kick button or role badge */}
@@ -135,15 +185,8 @@ export function MemberList({
                 <UserMinus className="h-3 w-3" />
                 {isBeingKicked ? 'Removing…' : 'Kick'}
               </button>
-            ) : member.role === 'owner' ? (
-              <span className="flex items-center gap-1 rounded-full bg-amber-500/20 px-2.5 py-1 text-xs font-medium text-amber-300">
-                <Crown className="h-3 w-3" />
-                Owner
-              </span>
             ) : (
-              <span className="rounded-full bg-slate-700 px-2.5 py-1 text-xs text-slate-400">
-                Member
-              </span>
+              <RoleBadge member={member} />
             )}
           </li>
         );

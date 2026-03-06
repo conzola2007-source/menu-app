@@ -5,30 +5,40 @@ import { getSupabaseClient } from '@/lib/supabase/client';
 import { useAuthStore } from '@/stores/authStore';
 import { queryKeys } from '@/lib/queryKeys';
 
+import type { MemberRole } from '@/lib/supabase/types';
+
+export interface HouseholdMember {
+  id: string;
+  user_id: string;
+  role: MemberRole;
+  joined_at: string;
+  is_creator: boolean;
+  visitor_expires_at: string | null;
+  profile: {
+    display_name: string;
+    avatar_url: string | null;
+  };
+}
+
 export interface HouseholdMembership {
-  role: 'owner' | 'member';
+  role: MemberRole;
+  is_creator: boolean;
+  visitor_expires_at: string | null;
   household: {
     id: string;
     name: string;
     invite_code: string;
     owner_id: string;
   };
-  members: {
-    id: string;
-    user_id: string;
-    role: 'owner' | 'member';
-    joined_at: string;
-    profile: {
-      display_name: string;
-      avatar_url: string | null;
-    };
-  }[];
+  members: HouseholdMember[];
 }
 
 // ─── Shared types ─────────────────────────────────────────────────────────────
 
 type RawMembershipRow = {
   role: string;
+  is_creator: boolean;
+  visitor_expires_at: string | null;
   household:
     | { id: string; name: string; invite_code: string; owner_id: string }
     | { id: string; name: string; invite_code: string; owner_id: string }[]
@@ -40,6 +50,8 @@ type RawMember = {
   user_id: string;
   role: string;
   joined_at: string;
+  is_creator: boolean;
+  visitor_expires_at: string | null;
   profile:
     | { display_name: string; avatar_url: string | null }
     | { display_name: string; avatar_url: string | null }[]
@@ -62,19 +74,23 @@ async function buildMembership(
 
   const { data: membersRaw, error: membersError } = await supabase
     .from('household_members')
-    .select('id, user_id, role, joined_at, profile:profiles(display_name, avatar_url)')
+    .select('id, user_id, role, joined_at, is_creator, visitor_expires_at, profile:profiles(display_name, avatar_url)')
     .eq('household_id', household.id);
 
   if (membersError) throw membersError;
 
   return {
-    role: raw.role as 'owner' | 'member',
+    role: raw.role as MemberRole,
+    is_creator: raw.is_creator ?? false,
+    visitor_expires_at: raw.visitor_expires_at ?? null,
     household,
     members: ((membersRaw as unknown as RawMember[]) ?? []).map((m) => ({
       id: m.id,
       user_id: m.user_id,
-      role: m.role as 'owner' | 'member',
+      role: m.role as MemberRole,
       joined_at: m.joined_at,
+      is_creator: m.is_creator ?? false,
+      visitor_expires_at: m.visitor_expires_at ?? null,
       profile: !m.profile
         ? { display_name: 'Unknown', avatar_url: null }
         : Array.isArray(m.profile)
@@ -97,7 +113,7 @@ export function useHouseholds() {
 
       const { data: rows, error } = await supabase
         .from('household_members')
-        .select('role, household:households(id, name, invite_code, owner_id)')
+        .select('role, is_creator, visitor_expires_at, household:households(id, name, invite_code, owner_id)')
         .eq('user_id', user!.id);
 
       if (error) throw error;
@@ -127,7 +143,7 @@ export function useHousehold() {
 
       const baseQuery = supabase
         .from('household_members')
-        .select('role, household:households(id, name, invite_code, owner_id)')
+        .select('role, is_creator, visitor_expires_at, household:households(id, name, invite_code, owner_id)')
         .eq('user_id', user!.id);
 
       // If activeHouseholdId is set, filter to that household; otherwise use any (first)

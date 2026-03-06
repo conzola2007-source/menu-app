@@ -1,7 +1,7 @@
 // Auto-generated types from Supabase schema (populate with `supabase gen types typescript`)
 // For now, these are hand-written stubs matching PRD Section 13
 
-export type MemberRole = 'owner' | 'member';
+export type MemberRole = 'owner' | 'head_of_household' | 'member' | 'visitor';
 export type CuisineType = 'italian' | 'mexican' | 'chinese' | 'japanese' | 'indian' | 'american' | 'mediterranean' | 'thai' | 'french' | 'middle-eastern' | 'korean' | 'other';
 export type CarbType = 'rice' | 'pasta' | 'bread' | 'potato' | 'noodles' | 'none' | 'other';
 export type ProteinType = 'chicken' | 'beef' | 'pork' | 'fish' | 'shrimp' | 'tofu' | 'lamb' | 'eggs' | 'none' | 'other';
@@ -66,6 +66,8 @@ export interface Database {
           user_id: string;
           role: MemberRole;
           joined_at: string;
+          visitor_expires_at: string | null;
+          is_creator: boolean;
         };
         Insert: {
           id?: string;
@@ -73,9 +75,55 @@ export interface Database {
           user_id: string;
           role?: MemberRole;
           joined_at?: string;
+          visitor_expires_at?: string | null;
+          is_creator?: boolean;
         };
         Update: {
           role?: MemberRole;
+          visitor_expires_at?: string | null;
+          is_creator?: boolean;
+        };
+      };
+      suggestions: {
+        Row: {
+          id: string;
+          household_id: string;
+          user_id: string | null;
+          content: string;
+          status: 'pending' | 'approved' | 'denied';
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          household_id: string;
+          user_id?: string | null;
+          content: string;
+          status?: 'pending' | 'approved' | 'denied';
+        };
+        Update: {
+          status?: 'pending' | 'approved' | 'denied';
+        };
+      };
+      household_notifications: {
+        Row: {
+          id: string;
+          household_id: string;
+          type: string;
+          ref_id: string | null;
+          message: string;
+          read_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          household_id: string;
+          type: string;
+          ref_id?: string | null;
+          message: string;
+          read_at?: string | null;
+        };
+        Update: {
+          read_at?: string | null;
         };
       };
       recipes: {

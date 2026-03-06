@@ -3,17 +3,20 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Settings, UserPlus, LogIn, ChevronDown, Check, PlusCircle } from 'lucide-react';
+import { Settings, UserPlus, LogIn, ChevronDown, Check, PlusCircle, Bell } from 'lucide-react';
 import { useHousehold, useHouseholds } from '@/hooks/useHousehold';
 import { useRecipes } from '@/hooks/useRecipes';
 import { useAuthStore } from '@/stores/authStore';
 import { useRemoveMember } from '@/hooks/useJoinRequests';
+import { useJoinRequests } from '@/hooks/useJoinRequests';
+import { useMySuggestions, useSubmitSuggestion } from '@/hooks/useSuggestions';
 import { InviteCodeDisplay } from '@/components/household/InviteCodeDisplay';
 import { MemberList } from '@/components/household/MemberList';
 import { MemberRecipes } from '@/components/household/MemberRecipes';
 import { IngredientList } from '@/components/household/IngredientList';
 import { VisitInviteSheet } from '@/components/household/VisitInviteSheet';
 import { Sheet } from '@/components/ui/Sheet';
+import { isHead } from '@/lib/roles';
 
 type Tab = 'analytics' | 'household' | 'ingredients' | 'recipes';
 
@@ -33,11 +36,27 @@ export default function HouseholdPage() {
   const setActiveHousehold = useAuthStore((s) => s.setActiveHousehold);
   const removeMember       = useRemoveMember();
 
-  const [activeTab,       setActiveTab]       = useState<Tab>('household');
-  const [selectedUserId,  setSelectedUserId]  = useState<string | null>(null);
-  const [showVisitInvite, setShowVisitInvite] = useState(false);
-  const [showSwitcher,    setShowSwitcher]    = useState(false);
-  const [kickingUserId,   setKickingUserId]   = useState<string | null>(null);
+  const currentUserIsHead = membership ? isHead(membership.role) : false;
+
+  // Bell badge counts (only fetched for heads)
+  const { data: joinRequests = [] } = useJoinRequests(
+    currentUserIsHead ? membership?.household.id : undefined,
+  );
+  const { data: mySuggestions = [] } = useMySuggestions(
+    membership?.household.id,
+    user?.id,
+  );
+  const submitSuggestion = useSubmitSuggestion();
+
+  const [activeTab,        setActiveTab]        = useState<Tab>('household');
+  const [selectedUserId,   setSelectedUserId]   = useState<string | null>(null);
+  const [showVisitInvite,  setShowVisitInvite]  = useState(false);
+  const [showSwitcher,     setShowSwitcher]     = useState(false);
+  const [kickingUserId,    setKickingUserId]    = useState<string | null>(null);
+  const [suggestionText,   setSuggestionText]   = useState('');
+  const [suggestionSent,   setSuggestionSent]   = useState(false);
+
+  const bellCount = currentUserIsHead ? joinRequests.length : 0;
 
   function handleKickMember(targetUserId: string) {
     if (!membership) return;
@@ -46,6 +65,17 @@ export default function HouseholdPage() {
       { targetUserId, householdId: membership.household.id },
       { onSettled: () => setKickingUserId(null) },
     );
+  }
+
+  async function handleSubmitSuggestion() {
+    if (!membership || !suggestionText.trim()) return;
+    await submitSuggestion.mutateAsync({
+      householdId: membership.household.id,
+      content: suggestionText.trim(),
+    });
+    setSuggestionText('');
+    setSuggestionSent(true);
+    setTimeout(() => setSuggestionSent(false), 3000);
   }
 
   if (isLoading) {
@@ -110,13 +140,28 @@ export default function HouseholdPage() {
               <ChevronDown className="h-4 w-4 text-slate-400" />
             )}
           </button>
-          <Link
-            href="/household/settings"
-            className="flex items-center gap-1.5 rounded-full bg-slate-800 px-3 py-1.5 text-xs text-slate-400 hover:bg-slate-700"
-          >
-            <Settings className="h-3.5 w-3.5" />
-            Settings
-          </Link>
+          <div className="flex items-center gap-2">
+            {/* Bell — heads only */}
+            {currentUserIsHead && (
+              <Link
+                href="/household/notifications"
+                className="relative flex h-9 w-9 items-center justify-center rounded-full bg-slate-800 text-slate-400 hover:bg-slate-700"
+                aria-label="Notifications"
+              >
+                <Bell className="h-4 w-4" />
+                {bellCount > 0 && (
+                  <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-red-500" />
+                )}
+              </Link>
+            )}
+            <Link
+              href="/household/settings"
+              className="flex items-center gap-1.5 rounded-full bg-slate-800 px-3 py-1.5 text-xs text-slate-400 hover:bg-slate-700"
+            >
+              <Settings className="h-3.5 w-3.5" />
+              Settings
+            </Link>
+          </div>
         </div>
       </div>
 
@@ -165,27 +210,77 @@ export default function HouseholdPage() {
                   members={membership.members}
                   currentUserId={user?.id ?? null}
                   onMemberClick={(uid) => setSelectedUserId(uid)}
-                  isCurrentUserOwner={membership.role === 'owner'}
-                  onKickMember={membership.role === 'owner' ? handleKickMember : undefined}
+                  isCurrentUserHead={currentUserIsHead}
+                  onKickMember={currentUserIsHead ? handleKickMember : undefined}
                   kickingUserId={kickingUserId}
                 />
               </div>
             </section>
 
-            {/* Invite */}
+            {/* Invite — only heads can see invite section */}
+            {currentUserIsHead && (
+              <section>
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Invite
+                </p>
+                <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
+                  <InviteCodeDisplay code={membership.household.invite_code} />
+                  <button
+                    type="button"
+                    onClick={() => setShowVisitInvite(true)}
+                    className="mt-3 text-sm text-slate-400 hover:text-white"
+                  >
+                    + Invite as visitor
+                  </button>
+                </div>
+              </section>
+            )}
+
+            {/* Suggestions */}
             <section>
               <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Invite
+                Suggest a meal idea
               </p>
               <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
-                <InviteCodeDisplay code={membership.household.invite_code} />
-                <button
-                  type="button"
-                  onClick={() => setShowVisitInvite(true)}
-                  className="mt-3 text-sm text-slate-400 hover:text-white"
-                >
-                  + Invite as visitor
-                </button>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={suggestionText}
+                    onChange={(e) => setSuggestionText(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') void handleSubmitSuggestion(); }}
+                    placeholder="e.g. Tacos on Friday!"
+                    maxLength={200}
+                    className="flex-1 rounded-xl bg-slate-800 px-3 py-2 text-sm text-white placeholder-slate-500 outline-none focus:ring-1 focus:ring-primary"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => void handleSubmitSuggestion()}
+                    disabled={!suggestionText.trim() || submitSuggestion.isPending}
+                    className="rounded-xl bg-primary px-4 py-2 text-sm font-medium text-white disabled:opacity-40"
+                  >
+                    {submitSuggestion.isPending ? '…' : 'Send'}
+                  </button>
+                </div>
+                {suggestionSent && (
+                  <p className="mt-2 text-xs text-green-400">Suggestion sent!</p>
+                )}
+                {/* Own suggestions history */}
+                {mySuggestions.length > 0 && (
+                  <div className="mt-3 flex flex-col gap-2">
+                    {mySuggestions.slice(0, 3).map((s) => (
+                      <div key={s.id} className="flex items-center justify-between gap-2">
+                        <p className="flex-1 truncate text-xs text-slate-400">{s.content}</p>
+                        <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs ${
+                          s.status === 'approved' ? 'bg-green-500/20 text-green-400' :
+                          s.status === 'denied'   ? 'bg-red-500/20 text-red-400' :
+                          'bg-slate-700 text-slate-400'
+                        }`}>
+                          {s.status}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </section>
           </>

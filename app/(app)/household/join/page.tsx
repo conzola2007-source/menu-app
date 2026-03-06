@@ -36,6 +36,7 @@ export default function JoinHouseholdPage() {
   const [isLooking, setIsLooking] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
   const [requestSent, setRequestSent] = useState(false);
+  const [visitorJoined, setVisitorJoined] = useState(false);
 
   // Auto-lookup if code in URL
   useEffect(() => {
@@ -108,8 +109,8 @@ export default function JoinHouseholdPage() {
         .insert({
           household_id: preview.id,
           user_id: user.id,
-          role: 'member',
-          visit_expires_at: visitExpiresAt,
+          role: 'visitor',
+          visitor_expires_at: visitExpiresAt,
         } as never);
 
       if (error) {
@@ -122,7 +123,9 @@ export default function JoinHouseholdPage() {
       setActiveHousehold(preview.id);
       await queryClient.invalidateQueries({ queryKey: queryKeys.household.current(preview.id) });
       await queryClient.invalidateQueries({ queryKey: queryKeys.household.all() });
-      router.push('/vote');
+      // Show welcome screen instead of redirecting
+      setVisitorJoined(true);
+      setIsJoining(false);
       return;
     }
 
@@ -141,6 +144,36 @@ export default function JoinHouseholdPage() {
     } finally {
       setIsJoining(false);
     }
+  }
+
+  // ── Visitor welcome screen ───────────────────────────────────────────────────
+  if (visitorJoined && preview) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center bg-slate-900 px-4 py-12">
+        <div className="w-full max-w-sm text-center">
+          <div className="mb-4 text-5xl">🎉</div>
+          <h1 className="text-2xl font-bold text-white">Welcome to {preview.name}!</h1>
+          <p className="mt-2 text-sm text-slate-400">
+            You&apos;ve joined as a visitor. Your access expires in {visitDays}{' '}
+            {visitDays === 1 ? 'day' : 'days'}.
+          </p>
+          <div className="mt-8 flex flex-col gap-3">
+            <Link
+              href="/recipes"
+              className="inline-flex items-center justify-center rounded-2xl bg-primary px-6 py-3 text-sm font-semibold text-white"
+            >
+              Add your recipes
+            </Link>
+            <Link
+              href="/household"
+              className="inline-flex items-center justify-center rounded-2xl border border-slate-700 bg-slate-800 px-6 py-3 text-sm font-semibold text-slate-300"
+            >
+              Go to household
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   // ── Request sent confirmation screen ────────────────────────────────────────

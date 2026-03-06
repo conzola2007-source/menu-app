@@ -69,12 +69,22 @@ export function useSendJoinRequest() {
 
 // ── useAcceptJoinRequest ──────────────────────────────────────────────────────
 
+export interface AcceptJoinRequestVars {
+  requestId: string;
+  assignRole?: 'head_of_household' | 'member' | 'visitor';
+  visitorDays?: number;
+}
+
 export function useAcceptJoinRequest() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (requestId: string) => {
+    mutationFn: async ({ requestId, assignRole = 'member', visitorDays }: AcceptJoinRequestVars) => {
       const supabase = getSupabaseClient();
-      const { error } = await supabase.rpc('accept_join_request', { request_id: requestId });
+      const { error } = await supabase.rpc('accept_join_request', {
+        request_id: requestId,
+        assign_role: assignRole,
+        visitor_days: visitorDays ?? null,
+      });
       if (error) throw error;
     },
     onSuccess: (_data, _vars, _ctx) => {
