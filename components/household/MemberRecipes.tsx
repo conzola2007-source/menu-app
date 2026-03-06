@@ -1,12 +1,12 @@
 'use client';
 
 import { useState } from 'react';
-import { ChefHat, Copy, Check } from 'lucide-react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { ChefHat, Clock } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
 import { getSupabaseClient } from '@/lib/supabase/client';
-import { queryKeys } from '@/lib/queryKeys';
 import { Avatar } from './MemberList';
 import { Sheet } from '@/components/ui/Sheet';
+import { useSendRecipeCookRequest } from '@/hooks/useRecipeCookRequests';
 
 interface MemberRecipesProps {
   isOpen: boolean;
@@ -30,9 +30,8 @@ interface MiniRecipe {
 }
 
 export function MemberRecipes({ isOpen, member, currentUserId, householdId, onClose }: MemberRecipesProps) {
-  const queryClient = useQueryClient();
-  const [copying, setCopying] = useState<string | null>(null);
-  const [copied,  setCopied]  = useState<Set<string>>(new Set());
+  const sendCookRequest = useSendRecipeCookRequest();
+  const [requested, setRequested] = useState<Set<string>>(new Set());
 
   const { data: recipes, isLoading } = useQuery({
     queryKey: ['member-recipes', member?.user_id ?? ''],
@@ -49,79 +48,12 @@ export function MemberRecipes({ isOpen, member, currentUserId, householdId, onCl
     enabled: !!member?.user_id,
   });
 
-  async function addToMine(recipe: MiniRecipe) {
-    setCopying(recipe.id);
-    try {
-      const supabase = getSupabaseClient();
-
-      const [recipeRes, ingredientsRes, stepsRes] = await Promise.all([
-        supabase.from('recipes').select('*').eq('id', recipe.id).single(),
-        supabase.from('recipe_ingredients').select('*').eq('recipe_id', recipe.id).order('sort_order', { ascending: true }),
-        supabase.from('recipe_steps').select('*').eq('recipe_id', recipe.id).order('step_order', { ascending: true }),
-      ]);
-      if (recipeRes.error) throw recipeRes.error;
-
-      const src = recipeRes.data as Record<string, unknown>;
-
-      const { data: newRecipe, error: insertErr } = await supabase
-        .from('recipes')
-        .insert({
-          title: src.title,
-          description: src.description ?? '',
-          cuisine: src.cuisine,
-          carb_type: src.carb_type,
-          protein_type: src.protein_type,
-          prep_time_min: src.prep_time_min ?? 0,
-          cook_time_min: src.cook_time_min ?? 0,
-          servings: src.servings ?? 4,
-          emoji: src.emoji,
-          bg_color: src.bg_color,
-          advance_prep_days: src.advance_prep_days ?? 0,
-          advance_prep_note: src.advance_prep_note ?? null,
-          is_global: false,
-          household_id: householdId,
-          created_by: currentUserId,
-        } as never)
-        .select('id')
-        .single();
-
-      if (insertErr) throw insertErr;
-      const newId = (newRecipe as { id: string }).id;
-
-      const ingredients = ingredientsRes.data ?? [];
-      const steps       = stepsRes.data ?? [];
-
-      await Promise.all([
-        ingredients.length > 0
-          ? supabase.from('recipe_ingredients').insert(
-              ingredients.map((ing) => ({
-                recipe_id: newId,
-                name: (ing as Record<string, unknown>).name,
-                amount: (ing as Record<string, unknown>).amount,
-                unit: (ing as Record<string, unknown>).unit,
-                storage_location: (ing as Record<string, unknown>).storage_location,
-                sort_order: (ing as Record<string, unknown>).sort_order,
-              } as never))
-            )
-          : Promise.resolve({ error: null }),
-        steps.length > 0
-          ? supabase.from('recipe_steps').insert(
-              steps.map((step) => ({
-                recipe_id: newId,
-                instruction: (step as Record<string, unknown>).instruction,
-                step_order: (step as Record<string, unknown>).step_order,
-              } as never))
-            )
-          : Promise.resolve({ error: null }),
-      ]);
-
-      setCopied((prev) => new Set([...prev, recipe.id]));
-      void queryClient.invalidateQueries({ queryKey: queryKeys.recipes.all(householdId) });
-    } catch (err) {
-      console.error('[MemberRecipes] addToMine error:', err);
-    } finally {
-      setCopying(null);
-    }
+  function requestCopy(recipe: MiniRecipe) {
+    if (!recipe.created_by) return;
+    sendCookRequest.mutate(
+      { recipeId: recipe.id, requesterId: currentUserId, ownerId: recipe.created_by },
+      { onSuccess: () => setRequested((prev) => new Set([...prev, recipe.id])) },
+    );
   }
 
   const isOwnProfile = member?.user_id === currentUserId;
@@ -156,8 +88,8 @@ export function MemberRecipes({ isOpen, member, currentUserId, householdId, onCl
         ) : (
           <div className="flex flex-col gap-2">
             {recipes.map((r) => {
-              const alreadyCopied = copied.has(r.id);
-              const isCopying     = copying === r.id;
+              const alreadyRequested = requested.has(r.id);
+              const isSending = sendCookRequest.isPending && !alreadyRequested;
               return (
                 <div
                   key={r.id}
@@ -176,17 +108,15 @@ export function MemberRecipes({ isOpen, member, currentUserId, householdId, onCl
                   {!isOwnProfile && (
                     <button
                       type="button"
-                      onClick={() => void addToMine(r)}
-                      disabled={isCopying || alreadyCopied}
+                      onClick={() => requestCopy(r)}
+                      disabled={isSending || alreadyRequested}
                       className="ml-1 flex shrink-0 items-center gap-1 rounded-full bg-slate-800 px-2.5 py-1 text-xs font-medium text-slate-300 hover:bg-slate-700 disabled:opacity-50"
-                      title="Add a copy to your recipes"
+                      title="Request to add to your recipes"
                     >
-                      {alreadyCopied ? (
-                        <Check className="h-3 w-3 text-green-400" />
-                      ) : (
-                        <Copy className="h-3 w-3" />
-                      )}
-                      {alreadyCopied ? 'Added' : isCopying ? '…' : 'Add'}
+                      {alreadyRequested ? (
+                        <Clock className="h-3 w-3 text-amber-400" />
+                      ) : null}
+                      {alreadyRequested ? 'Requested' : isSending ? '…' : 'Add'}
                     </button>
                   )}
                 </div>

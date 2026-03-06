@@ -1,7 +1,7 @@
 // Auto-generated types from Supabase schema (populate with `supabase gen types typescript`)
 // For now, these are hand-written stubs matching PRD Section 13
 
-export type MemberRole = 'owner' | 'head_of_household' | 'member' | 'visitor';
+export type MemberRole = 'owner' | 'head_of_household' | 'visitor_head' | 'member' | 'visitor';
 export type CuisineType = 'italian' | 'mexican' | 'chinese' | 'japanese' | 'indian' | 'american' | 'mediterranean' | 'thai' | 'french' | 'middle-eastern' | 'korean' | 'other';
 export type CarbType = 'rice' | 'pasta' | 'bread' | 'potato' | 'noodles' | 'none' | 'other';
 export type ProteinType = 'chicken' | 'beef' | 'pork' | 'fish' | 'shrimp' | 'tofu' | 'lamb' | 'eggs' | 'none' | 'other';

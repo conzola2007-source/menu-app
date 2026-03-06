@@ -14,7 +14,8 @@ interface IngredientListProps {
 interface AddForm {
   name: string;
   default_unit: IngredientUnit;
-  price: string;
+  pack_qty: string;
+  pack_price: string;
 }
 
 export function IngredientList({ householdId }: IngredientListProps) {
@@ -23,12 +24,13 @@ export function IngredientList({ householdId }: IngredientListProps) {
   const updateIngredient = useUpdateIngredient(householdId);
 
   const [adding, setAdding] = useState(false);
-  const [addForm, setAddForm] = useState<AddForm>({ name: '', default_unit: 'qty', price: '' });
+  const [addForm, setAddForm] = useState<AddForm>({ name: '', default_unit: 'qty', pack_qty: '', pack_price: '' });
   const [addError, setAddError] = useState('');
 
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editPrice, setEditPrice] = useState('');
   const [editUnit, setEditUnit] = useState<IngredientUnit>('qty');
+  const [editPackQty, setEditPackQty] = useState('');
+  const [editPackPrice, setEditPackPrice] = useState('');
 
   async function handleAdd() {
     if (!addForm.name.trim()) { setAddError('Name required.'); return; }
@@ -37,10 +39,11 @@ export function IngredientList({ householdId }: IngredientListProps) {
       await createIngredient.mutateAsync({
         name: addForm.name.trim(),
         default_unit: addForm.default_unit,
-        price: addForm.price ? parseFloat(addForm.price) : null,
+        pack_qty: addForm.pack_qty ? parseFloat(addForm.pack_qty) : null,
+        pack_price: addForm.pack_price ? parseFloat(addForm.pack_price) : null,
       });
       setAdding(false);
-      setAddForm({ name: '', default_unit: 'qty', price: '' });
+      setAddForm({ name: '', default_unit: 'qty', pack_qty: '', pack_price: '' });
     } catch (err: unknown) {
       setAddError(err instanceof Error ? err.message : 'Failed to add ingredient.');
     }
@@ -49,16 +52,23 @@ export function IngredientList({ householdId }: IngredientListProps) {
   function startEdit(ing: Ingredient) {
     setEditingId(ing.id);
     setEditUnit(ing.default_unit);
-    setEditPrice(ing.price != null ? String(ing.price) : '');
+    setEditPackQty(ing.pack_qty != null ? String(ing.pack_qty) : '');
+    setEditPackPrice(ing.pack_price != null ? String(ing.pack_price) : '');
   }
 
   async function saveEdit(id: string) {
     await updateIngredient.mutateAsync({
       id,
       default_unit: editUnit,
-      price: editPrice ? parseFloat(editPrice) : null,
+      pack_qty: editPackQty ? parseFloat(editPackQty) : null,
+      pack_price: editPackPrice ? parseFloat(editPackPrice) : null,
     });
     setEditingId(null);
+  }
+
+  function formatCost(ing: Ingredient): string | null {
+    if (ing.per_unit_cost == null) return null;
+    return `£${ing.per_unit_cost.toFixed(2)} / ${ing.default_unit}`;
   }
 
   return (
@@ -100,14 +110,28 @@ export function IngredientList({ householdId }: IngredientListProps) {
               </select>
               <input
                 type="number"
+                step="1"
+                min="0"
+                placeholder="Pack qty"
+                value={addForm.pack_qty}
+                onChange={(e) => setAddForm((f) => ({ ...f, pack_qty: e.target.value }))}
+                className="w-20 rounded-lg border border-slate-600 bg-slate-800 px-2 py-1.5 text-xs text-white placeholder:text-slate-500 focus:outline-none"
+              />
+              <input
+                type="number"
                 step="0.01"
                 min="0"
-                placeholder="Price / unit"
-                value={addForm.price}
-                onChange={(e) => setAddForm((f) => ({ ...f, price: e.target.value }))}
+                placeholder="Pack price"
+                value={addForm.pack_price}
+                onChange={(e) => setAddForm((f) => ({ ...f, pack_price: e.target.value }))}
                 className="w-24 rounded-lg border border-slate-600 bg-slate-800 px-2 py-1.5 text-xs text-white placeholder:text-slate-500 focus:outline-none"
               />
             </div>
+            {addForm.pack_qty && addForm.pack_price && (
+              <p className="text-xs text-slate-500">
+                Unit cost: £{(parseFloat(addForm.pack_price) / parseFloat(addForm.pack_qty)).toFixed(2)} / {addForm.default_unit}
+              </p>
+            )}
             {addError && <p className="text-xs text-red-400">{addError}</p>}
             <div className="flex gap-2">
               <button
@@ -146,60 +170,70 @@ export function IngredientList({ householdId }: IngredientListProps) {
           </div>
         ) : (
           <ul className="divide-y divide-slate-800">
-            {ingredients.map((ing) => (
-              <li key={ing.id} className="flex items-center gap-3 px-3 py-2.5">
-                <span className="flex-1 truncate text-sm text-white">{ing.name}</span>
+            {ingredients.map((ing) => {
+              const cost = formatCost(ing);
+              return (
+                <li key={ing.id} className="flex items-center gap-3 px-3 py-2.5">
+                  <span className="flex-1 truncate text-sm text-white">{ing.name}</span>
 
-                {editingId === ing.id ? (
-                  <>
-                    <select
-                      value={editUnit}
-                      onChange={(e) => setEditUnit(e.target.value as IngredientUnit)}
-                      className="rounded-lg border border-slate-600 bg-slate-800 px-2 py-1 text-xs text-white focus:outline-none"
-                    >
-                      {INGREDIENT_UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
-                    </select>
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={editPrice}
-                      onChange={(e) => setEditPrice(e.target.value)}
-                      placeholder="Price"
-                      className="w-16 rounded-lg border border-slate-600 bg-slate-800 px-2 py-1 text-xs text-white placeholder:text-slate-500 focus:outline-none"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => void saveEdit(ing.id)}
-                      className="text-green-400 hover:text-green-300"
-                    >
-                      <Check className="h-3.5 w-3.5" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setEditingId(null)}
-                      className="text-slate-500 hover:text-slate-300"
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <span className="text-xs text-slate-500">{ing.default_unit}</span>
-                    {ing.price != null && (
-                      <span className="text-xs text-slate-500">${ing.price.toFixed(2)}</span>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => startEdit(ing)}
-                      className="text-slate-600 hover:text-slate-400"
-                    >
-                      <Pencil className="h-3.5 w-3.5" />
-                    </button>
-                  </>
-                )}
-              </li>
-            ))}
+                  {editingId === ing.id ? (
+                    <>
+                      <select
+                        value={editUnit}
+                        onChange={(e) => setEditUnit(e.target.value as IngredientUnit)}
+                        className="rounded-lg border border-slate-600 bg-slate-800 px-2 py-1 text-xs text-white focus:outline-none"
+                      >
+                        {INGREDIENT_UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
+                      </select>
+                      <input
+                        type="number"
+                        step="1"
+                        min="0"
+                        value={editPackQty}
+                        onChange={(e) => setEditPackQty(e.target.value)}
+                        placeholder="Qty"
+                        className="w-14 rounded-lg border border-slate-600 bg-slate-800 px-2 py-1 text-xs text-white placeholder:text-slate-500 focus:outline-none"
+                      />
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={editPackPrice}
+                        onChange={(e) => setEditPackPrice(e.target.value)}
+                        placeholder="£price"
+                        className="w-16 rounded-lg border border-slate-600 bg-slate-800 px-2 py-1 text-xs text-white placeholder:text-slate-500 focus:outline-none"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => void saveEdit(ing.id)}
+                        className="text-green-400 hover:text-green-300"
+                      >
+                        <Check className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEditingId(null)}
+                        className="text-slate-500 hover:text-slate-300"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <span className="text-xs text-slate-500">{ing.default_unit}</span>
+                      {cost && <span className="text-xs text-slate-400">{cost}</span>}
+                      <button
+                        type="button"
+                        onClick={() => startEdit(ing)}
+                        className="text-slate-600 hover:text-slate-400"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                    </>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         )}
       </div>

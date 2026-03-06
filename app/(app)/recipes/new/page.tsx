@@ -2,9 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Link2 } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import { RecipeForm } from '@/components/recipe/RecipeForm';
-import { ImportRecipeSheet } from '@/components/recipe/ImportRecipeSheet';
 import { useCreateRecipe } from '@/hooks/useRecipes';
 import { useHousehold } from '@/hooks/useHousehold';
 import type { RecipeFormValues } from '@/components/recipe/RecipeForm';
@@ -16,7 +15,6 @@ export default function NewRecipePage() {
   const { data: membership } = useHousehold();
   const householdId = (membership as unknown as { household?: { id: string } } | null)?.household?.id;
   const createRecipe = useCreateRecipe();
-  const [showImport, setShowImport] = useState(false);
   const [importedDefaults, setImportedDefaults] = useState<Partial<RecipeFormValues> | undefined>();
   // Key forces RecipeForm to remount with fresh defaultValues after import
   const [formKey, setFormKey] = useState(0);
@@ -89,7 +87,7 @@ export default function NewRecipePage() {
       steps: data.steps,
     };
     setImportedDefaults(defaults);
-    setFormKey((k) => k + 1); // remount form with new defaults
+    setFormKey((k) => k + 1);
   }
 
   if (!householdId) {
@@ -117,14 +115,6 @@ export default function NewRecipePage() {
           <ArrowLeft className="h-4 w-4" />
         </button>
         <h1 className="flex-1 text-base font-semibold text-white">New recipe</h1>
-        <button
-          type="button"
-          onClick={() => setShowImport(true)}
-          className="flex items-center gap-1.5 rounded-full border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs font-medium text-slate-300 hover:border-slate-500 hover:text-white"
-        >
-          <Link2 className="h-3.5 w-3.5" />
-          Import URL
-        </button>
       </div>
 
       {importedDefaults && (
@@ -148,12 +138,6 @@ export default function NewRecipePage() {
           submitLabel="Create recipe"
         />
       </div>
-
-      <ImportRecipeSheet
-        isOpen={showImport}
-        onClose={() => setShowImport(false)}
-        onImported={handleImported}
-      />
     </div>
   );
 }

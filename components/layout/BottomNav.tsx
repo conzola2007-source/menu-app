@@ -4,6 +4,21 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Users, CalendarDays, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useAuthStore } from '@/stores/authStore';
+import { useMyRecipeCookRequests } from '@/hooks/useRecipeCookRequests';
+
+function AccountIcon({ size, strokeWidth }: { size: number; strokeWidth: number }) {
+  const userId = useAuthStore((s) => s.user?.id);
+  const { data: requests = [] } = useMyRecipeCookRequests(userId);
+  return (
+    <span className="relative">
+      <User size={size} strokeWidth={strokeWidth} />
+      {requests.length > 0 && (
+        <span className="absolute -right-1 -top-1 flex h-2 w-2 rounded-full bg-red-500" />
+      )}
+    </span>
+  );
+}
 
 const TABS = [
   {
@@ -55,7 +70,11 @@ export function BottomNav() {
                   active ? 'text-primary' : 'text-slate-400 hover:text-slate-200'
                 )}
               >
-                <Icon size={22} strokeWidth={active ? 2.5 : 1.8} />
+                {href === '/account' ? (
+                  <AccountIcon size={22} strokeWidth={active ? 2.5 : 1.8} />
+                ) : (
+                  <Icon size={22} strokeWidth={active ? 2.5 : 1.8} />
+                )}
                 <span>{label}</span>
               </Link>
             );
@@ -82,7 +101,11 @@ export function BottomNav() {
                     : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
                 )}
               >
-                <Icon size={18} strokeWidth={active ? 2.5 : 1.8} />
+                {href === '/account' ? (
+                  <AccountIcon size={18} strokeWidth={active ? 2.5 : 1.8} />
+                ) : (
+                  <Icon size={18} strokeWidth={active ? 2.5 : 1.8} />
+                )}
                 {label}
               </Link>
             );

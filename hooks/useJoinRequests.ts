@@ -69,21 +69,42 @@ export function useSendJoinRequest() {
 
 // ── useAcceptJoinRequest ──────────────────────────────────────────────────────
 
+export type VisitorExpiry =
+  | { type: 'duration'; value: number; unit: 'minutes' | 'hours' | 'days' | 'months' | 'years' }
+  | { type: 'until'; iso: string };
+
 export interface AcceptJoinRequestVars {
   requestId: string;
-  assignRole?: 'head_of_household' | 'member' | 'visitor';
-  visitorDays?: number;
+  assignRole?: 'head_of_household' | 'visitor_head' | 'member' | 'visitor';
+  visitorExpiry?: VisitorExpiry;
+}
+
+function computeExpiryIso(expiry: VisitorExpiry): string {
+  if (expiry.type === 'until') return expiry.iso;
+  const now = Date.now();
+  const ms = (() => {
+    switch (expiry.unit) {
+      case 'minutes': return expiry.value * 60_000;
+      case 'hours':   return expiry.value * 3_600_000;
+      case 'days':    return expiry.value * 86_400_000;
+      case 'months':  return expiry.value * 30 * 86_400_000;
+      case 'years':   return expiry.value * 365 * 86_400_000;
+    }
+  })();
+  return new Date(now + ms).toISOString();
 }
 
 export function useAcceptJoinRequest() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ requestId, assignRole = 'member', visitorDays }: AcceptJoinRequestVars) => {
+    mutationFn: async ({ requestId, assignRole = 'member', visitorExpiry }: AcceptJoinRequestVars) => {
       const supabase = getSupabaseClient();
+      const isVisitor = assignRole === 'visitor' || assignRole === 'visitor_head';
+      const visitorExpiresAt = isVisitor && visitorExpiry ? computeExpiryIso(visitorExpiry) : null;
       const { error } = await supabase.rpc('accept_join_request', {
         request_id: requestId,
         assign_role: assignRole,
-        visitor_days: visitorDays ?? null,
+        visitor_expires_at: visitorExpiresAt ?? null,
       });
       if (error) throw error;
     },

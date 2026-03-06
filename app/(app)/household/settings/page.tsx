@@ -514,10 +514,10 @@ export default function HouseholdSettingsPage() {
         onClose={() => setApprovalRequestId(null)}
         requesterName={approvalRequesterName}
         isLoading={acceptRequest.isPending}
-        onConfirm={(role, visitorDays) => {
+        onConfirm={(role, visitorExpiry) => {
           if (!approvalRequestId) return;
           acceptRequest.mutate(
-            { requestId: approvalRequestId, assignRole: role, visitorDays },
+            { requestId: approvalRequestId, assignRole: role, visitorExpiry },
             { onSuccess: () => setApprovalRequestId(null) },
           );
         }}

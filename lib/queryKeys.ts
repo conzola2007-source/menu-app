@@ -84,4 +84,10 @@ export const queryKeys = {
   notificationPreferences: {
     get: (userId: string) => ['notificationPreferences', userId] as const,
   },
+  recipeCookRequests: {
+    mine: (userId: string) => ['recipeCookRequests', 'mine', userId] as const,
+  },
+  shoppingStats: {
+    get: (householdId: string) => ['shoppingStats', householdId] as const,
+  },
 } as const;

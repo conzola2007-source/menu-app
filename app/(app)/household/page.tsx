@@ -11,6 +11,7 @@ import { useRemoveMember } from '@/hooks/useJoinRequests';
 import { useJoinRequests } from '@/hooks/useJoinRequests';
 import { useMySuggestions, useSubmitSuggestion } from '@/hooks/useSuggestions';
 import { useHouseholdAnalytics } from '@/hooks/useMealHistory';
+import { useShoppingStats } from '@/hooks/useShoppingStats';
 import { InviteCodeDisplay } from '@/components/household/InviteCodeDisplay';
 import { MemberList } from '@/components/household/MemberList';
 import { MemberRecipes } from '@/components/household/MemberRecipes';
@@ -58,6 +59,7 @@ export default function HouseholdPage() {
   const [suggestionSent,   setSuggestionSent]   = useState(false);
 
   const { data: analytics } = useHouseholdAnalytics(membership?.household.id ?? null);
+  const { data: shoppingStats } = useShoppingStats(membership?.household.id);
 
   const bellCount = currentUserIsHead ? joinRequests.length : 0;
 
@@ -257,6 +259,33 @@ export default function HouseholdPage() {
                     </div>
                   ))}
                 </div>
+              </section>
+            )}
+
+            {/* Shopping stats */}
+            {shoppingStats && shoppingStats.total_trips > 0 && (
+              <section>
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Shopping trips
+                </p>
+                <div className="flex items-center justify-between rounded-2xl border border-slate-800 bg-slate-900 px-4 py-3 mb-2">
+                  <span className="text-sm text-slate-400">Total trips logged</span>
+                  <span className="text-lg font-bold text-white">{shoppingStats.total_trips}</span>
+                </div>
+                {shoppingStats.shoppers.length > 0 && (
+                  <div className="flex flex-col divide-y divide-slate-800 rounded-2xl border border-slate-800 bg-slate-900">
+                    {shoppingStats.shoppers.map((s, i) => (
+                      <div key={s.user_id} className="flex items-center gap-3 px-4 py-3">
+                        <span className="text-xs font-bold text-slate-600 w-4">#{i + 1}</span>
+                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/20 text-sm font-bold text-primary">
+                          {s.display_name.charAt(0).toUpperCase()}
+                        </span>
+                        <span className="flex-1 text-sm font-medium text-white">{s.display_name}</span>
+                        <span className="text-xs text-slate-500">{s.trip_count} trip{s.trip_count !== 1 ? 's' : ''}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </section>
             )}
 

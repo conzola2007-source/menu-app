@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, UserCheck, UserX, Check, X, BookOpen } from 'lucide-react';
+import { ArrowLeft, UserCheck, UserX, Check, X, PlusCircle, MinusCircle, Tag } from 'lucide-react';
 import { useHousehold } from '@/hooks/useHousehold';
 import { useJoinRequests, useAcceptJoinRequest, useDenyJoinRequest } from '@/hooks/useJoinRequests';
 import { useSuggestions, useRespondToSuggestion } from '@/hooks/useSuggestions';
@@ -187,54 +187,76 @@ export default function NotificationsPage() {
           {suggestions.length > 0 && (
             <section>
               <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Meal Suggestions · {suggestions.length}
+                Suggestions · {suggestions.length}
               </h2>
               <div className="flex flex-col divide-y divide-slate-800 rounded-2xl border border-slate-800 bg-slate-900">
-                {suggestions.map((s) => (
-                  <div key={s.id} className="flex items-start gap-3 px-4 py-3.5">
-                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-700 text-xs font-semibold text-white">
-                      {(s.profile?.display_name ?? '?').charAt(0).toUpperCase()}
+                {suggestions.map((s) => {
+                  const typeIcon =
+                    s.type === 'add_recipe' ? <PlusCircle className="h-3.5 w-3.5 text-green-400" /> :
+                    s.type === 'remove_recipe' ? <MinusCircle className="h-3.5 w-3.5 text-red-400" /> :
+                    s.type === 'update_ingredient_price' ? <Tag className="h-3.5 w-3.5 text-amber-400" /> :
+                    null;
+                  const typeLabel =
+                    s.type === 'add_recipe' ? 'Add recipe' :
+                    s.type === 'remove_recipe' ? 'Remove recipe' :
+                    s.type === 'update_ingredient_price' ? 'Update price' :
+                    null;
+                  return (
+                    <div key={s.id} className="flex items-start gap-3 px-4 py-3.5">
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-700 text-xs font-semibold text-white">
+                        {(s.profile?.display_name ?? '?').charAt(0).toUpperCase()}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        {typeLabel && (
+                          <div className="mb-0.5 flex items-center gap-1">
+                            {typeIcon}
+                            <span className="text-xs font-medium text-slate-400">{typeLabel}</span>
+                          </div>
+                        )}
+                        <p className="text-sm text-white">{s.content}</p>
+                        <p className="mt-0.5 text-xs text-slate-500">
+                          from {s.profile?.display_name ?? 'Unknown'}
+                        </p>
+                      </div>
+                      <div className="flex gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            respondToSuggestion.mutate({
+                              suggestionId: s.id,
+                              householdId: householdId!,
+                              status: 'approved',
+                              type: s.type,
+                              payload: s.payload,
+                            })
+                          }
+                          disabled={respondToSuggestion.isPending}
+                          className="flex h-8 w-8 items-center justify-center rounded-full bg-green-500/20 text-green-400 hover:bg-green-500/30 disabled:opacity-50"
+                          aria-label="Approve"
+                        >
+                          <Check className="h-4 w-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            respondToSuggestion.mutate({
+                              suggestionId: s.id,
+                              householdId: householdId!,
+                              status: 'denied',
+                              type: s.type,
+                              payload: s.payload,
+                            })
+                          }
+                          disabled={respondToSuggestion.isPending}
+                          className="flex h-8 w-8 items-center justify-center rounded-full bg-red-500/20 text-red-400 hover:bg-red-500/30 disabled:opacity-50"
+                          aria-label="Deny"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm text-white">{s.content}</p>
-                      <p className="mt-0.5 text-xs text-slate-500">
-                        from {s.profile?.display_name ?? 'Unknown'}
-                      </p>
-                    </div>
-                    <div className="flex gap-1.5">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          respondToSuggestion.mutate({
-                            suggestionId: s.id,
-                            householdId: householdId!,
-                            status: 'approved',
-                          })
-                        }
-                        disabled={respondToSuggestion.isPending}
-                        className="flex h-8 w-8 items-center justify-center rounded-full bg-green-500/20 text-green-400 hover:bg-green-500/30 disabled:opacity-50"
-                        aria-label="Approve"
-                      >
-                        <Check className="h-4 w-4" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          respondToSuggestion.mutate({
-                            suggestionId: s.id,
-                            householdId: householdId!,
-                            status: 'denied',
-                          })
-                        }
-                        disabled={respondToSuggestion.isPending}
-                        className="flex h-8 w-8 items-center justify-center rounded-full bg-red-500/20 text-red-400 hover:bg-red-500/30 disabled:opacity-50"
-                        aria-label="Deny"
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </section>
           )}
@@ -247,10 +269,10 @@ export default function NotificationsPage() {
         onClose={() => setApprovalRequestId(null)}
         requesterName={approvalRequesterName}
         isLoading={acceptRequest.isPending}
-        onConfirm={(role, visitorDays) => {
+        onConfirm={(role, visitorExpiry) => {
           if (!approvalRequestId) return;
           acceptRequest.mutate(
-            { requestId: approvalRequestId, assignRole: role, visitorDays },
+            { requestId: approvalRequestId, assignRole: role, visitorExpiry },
             { onSuccess: () => setApprovalRequestId(null) },
           );
         }}

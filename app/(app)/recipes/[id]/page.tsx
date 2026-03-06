@@ -7,6 +7,7 @@ import { ArrowLeft, Pencil, Clock, ChefHat, Users, AlertTriangle, UtensilsCrosse
 import { useRecipeDetail } from '@/hooks/useRecipes';
 import { useHousehold } from '@/hooks/useHousehold';
 import { useAuthStore } from '@/stores/authStore';
+import { useIngredients } from '@/hooks/useIngredients';
 import { useRecipeCooks, useAddSelfAsCook, useRemoveSelfAsCook } from '@/hooks/useRecipeCooks';
 import { useRecipeRatings, useUpsertRating } from '@/hooks/useRecipeRatings';
 import { useRecipeFavourites, useToggleFavourite } from '@/hooks/useRecipeFavourites';
@@ -24,6 +25,7 @@ export default function RecipeDetailPage() {
 
   const { data: recipe, isLoading, error } = useRecipeDetail(id ?? null);
   const { data: cooks = [] } = useRecipeCooks(id ?? null, householdId ?? null);
+  const { data: houseIngredients = [] } = useIngredients(householdId ?? null);
   const addSelfAsCook = useAddSelfAsCook();
   const removeSelfAsCook = useRemoveSelfAsCook();
 
@@ -93,6 +95,26 @@ export default function RecipeDetailPage() {
       : null;
 
   const totalTime = recipe.prep_time_min + recipe.cook_time_min;
+
+  // Estimated cost from household ingredient library
+  const ingredientCostMap = new Map(
+    houseIngredients
+      .filter((i) => i.per_unit_cost != null)
+      .map((i) => [i.name.toLowerCase(), i.per_unit_cost!]),
+  );
+  let estimatedCost: number | null = null;
+  if (recipe.ingredients.length > 0 && ingredientCostMap.size > 0) {
+    let total = 0;
+    let matched = 0;
+    for (const ing of recipe.ingredients) {
+      const unitCost = ingredientCostMap.get(ing.name.toLowerCase());
+      if (unitCost != null) {
+        total += ing.amount * unitCost * scaleFactor;
+        matched++;
+      }
+    }
+    if (matched > 0) estimatedCost = total;
+  }
 
   return (
     <div className="min-h-screen bg-slate-900 pb-24">
@@ -176,6 +198,15 @@ export default function RecipeDetailPage() {
             </div>
           )}
         </div>
+
+        {/* Estimated cost */}
+        {estimatedCost != null && (
+          <div className="mt-2 flex items-center gap-1.5 text-sm text-slate-400">
+            <span>Est. cost:</span>
+            <span className="font-medium text-slate-300">£{estimatedCost.toFixed(2)}</span>
+            <span className="text-xs text-slate-600">for {displayServings} serving{displayServings !== 1 ? 's' : ''}</span>
+          </div>
+        )}
 
         {/* Advance prep banner */}
         {recipe.advance_prep_days > 0 && (

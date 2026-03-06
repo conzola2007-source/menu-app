@@ -69,7 +69,6 @@ export function IngredientSearch({
       const ing = await createIngredient.mutateAsync({
         name: value.trim(),
         default_unit: newUnit,
-        price: newPrice ? parseFloat(newPrice) : null,
       });
       onChange(ing.name, ing.default_unit);
       setOpen(false);

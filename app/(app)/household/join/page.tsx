@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { ChefHat, Utensils, Link2, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -146,29 +147,78 @@ export default function JoinHouseholdPage() {
     }
   }
 
-  // ── Visitor welcome screen ───────────────────────────────────────────────────
+  // ── Welcome screen (visitor joined directly) ─────────────────────────────────
   if (visitorJoined && preview) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-slate-900 px-4 py-12">
-        <div className="w-full max-w-sm text-center">
-          <div className="mb-4 text-5xl">🎉</div>
-          <h1 className="text-2xl font-bold text-white">Welcome to {preview.name}!</h1>
-          <p className="mt-2 text-sm text-slate-400">
-            You&apos;ve joined as a visitor. Your access expires in {visitDays}{' '}
-            {visitDays === 1 ? 'day' : 'days'}.
+        <div className="w-full max-w-sm">
+          <div className="mb-8 text-center">
+            <div className="mb-4 text-5xl">🎉</div>
+            <h1 className="text-2xl font-bold text-white">Welcome to {preview.name}!</h1>
+            <p className="mt-2 text-sm text-slate-400">
+              You&apos;ve joined as a visitor.{' '}
+              {visitDays > 0
+                ? `Your access expires in ${visitDays} ${visitDays === 1 ? 'day' : 'days'}.`
+                : 'Get started below.'}
+            </p>
+          </div>
+
+          <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
+            What would you like to do?
           </p>
-          <div className="mt-8 flex flex-col gap-3">
-            <Link
-              href="/recipes"
-              className="inline-flex items-center justify-center rounded-2xl bg-primary px-6 py-3 text-sm font-semibold text-white"
-            >
-              Add your recipes
-            </Link>
+
+          <div className="flex flex-col gap-3">
+            {/* Browse household recipes */}
             <Link
               href="/household"
-              className="inline-flex items-center justify-center rounded-2xl border border-slate-700 bg-slate-800 px-6 py-3 text-sm font-semibold text-slate-300"
+              className="flex items-center gap-4 rounded-2xl border border-slate-700 bg-slate-800 px-4 py-4 hover:border-slate-600 hover:bg-slate-700/50"
             >
-              Go to household
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/20 text-primary">
+                <Utensils className="h-5 w-5" />
+              </span>
+              <div className="flex-1 min-w-0">
+                <p className="font-medium text-white">Browse household recipes</p>
+                <p className="text-xs text-slate-400">See what&apos;s in the pool</p>
+              </div>
+              <ArrowRight className="h-4 w-4 shrink-0 text-slate-500" />
+            </Link>
+
+            {/* Import a recipe from URL */}
+            <Link
+              href="/recipes"
+              className="flex items-center gap-4 rounded-2xl border border-slate-700 bg-slate-800 px-4 py-4 hover:border-slate-600 hover:bg-slate-700/50"
+            >
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-500/20 text-violet-400">
+                <Link2 className="h-5 w-5" />
+              </span>
+              <div className="flex-1 min-w-0">
+                <p className="font-medium text-white">Import a recipe from URL</p>
+                <p className="text-xs text-slate-400">Paste a link to any recipe page</p>
+              </div>
+              <ArrowRight className="h-4 w-4 shrink-0 text-slate-500" />
+            </Link>
+
+            {/* Add your own recipe */}
+            <Link
+              href="/recipes/new"
+              className="flex items-center gap-4 rounded-2xl border border-slate-700 bg-slate-800 px-4 py-4 hover:border-slate-600 hover:bg-slate-700/50"
+            >
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-500/20 text-amber-400">
+                <ChefHat className="h-5 w-5" />
+              </span>
+              <div className="flex-1 min-w-0">
+                <p className="font-medium text-white">Add your own recipe</p>
+                <p className="text-xs text-slate-400">Create a recipe from scratch</p>
+              </div>
+              <ArrowRight className="h-4 w-4 shrink-0 text-slate-500" />
+            </Link>
+
+            {/* Skip */}
+            <Link
+              href="/vote"
+              className="mt-1 text-center text-sm text-slate-500 hover:text-slate-300"
+            >
+              Skip for now →
             </Link>
           </div>
         </div>
