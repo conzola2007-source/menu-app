@@ -79,10 +79,23 @@ export default function VotePage() {
     }
   }, [isRevoteMode, localQueue, router]);
 
-  // Normal vote complete — go straight to plan.
-  // localQueue starts as null (not yet loaded), so [] only means genuinely empty.
+  // Normal vote complete — redirect to plan ONLY when the queue transitions
+  // from having items to empty (i.e. the user just voted the last card).
+  // If the user navigates BACK to this page with an already-empty queue, the
+  // prev value starts as null so no redirect fires and we show the results.
+  const prevNormalQueueLenRef = useRef<number | null>(null);
+  const [justCompletedNormalVote, setJustCompletedNormalVote] = useState(false);
+
   useEffect(() => {
-    if (!isRevoteMode && localQueue !== null && localQueue.length === 0) {
+    if (isRevoteMode || localQueue === null) {
+      prevNormalQueueLenRef.current = null;
+      return;
+    }
+    const prev = prevNormalQueueLenRef.current;
+    prevNormalQueueLenRef.current = localQueue.length;
+
+    if (prev !== null && prev > 0 && localQueue.length === 0) {
+      setJustCompletedNormalVote(true);
       router.replace('/plan');
     }
   }, [isRevoteMode, localQueue, router]);
@@ -154,9 +167,24 @@ export default function VotePage() {
   const allVotedByMe = localQueue !== null && localQueue.length === 0;
 
   // ── Results view ──────────────────────────────────────────────────────────
-  // Both modes redirect to /plan via useEffect — return null to avoid flash.
   if (allVotedByMe) {
-    return null;
+    // Revote just finished — redirect imminent, show nothing to avoid flash.
+    if (isRevoteMode) return null;
+    // Normal vote just finished — redirect imminent, show nothing.
+    if (justCompletedNormalVote) return null;
+    // User navigated BACK from plan — show the results screen.
+    return (
+      <div className="min-h-screen bg-slate-900 pb-24 px-4 pt-4">
+        <VoteResults
+          recipes={voteData.recipes}
+          myVotes={voteData.myVotes}
+          allVotes={voteData.allVotes}
+          memberStatuses={voteData.memberStatuses}
+          totalMembers={voteData.totalMembers}
+          allMembersFinished={voteData.memberStatuses.every((m) => m.hasFinished)}
+        />
+      </div>
+    );
   }
 
   // ── Swipe view ────────────────────────────────────────────────────────────
