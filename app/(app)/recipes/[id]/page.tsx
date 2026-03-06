@@ -3,10 +3,11 @@
 import { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Pencil, Clock, ChefHat, Users, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Pencil, Clock, ChefHat, Users, AlertTriangle, UtensilsCrossed } from 'lucide-react';
 import { useRecipeDetail } from '@/hooks/useRecipes';
 import { useHousehold } from '@/hooks/useHousehold';
 import { useAuthStore } from '@/stores/authStore';
+import { useRecipeCooks, useAddSelfAsCook, useRemoveSelfAsCook } from '@/hooks/useRecipeCooks';
 import { formatQuantity } from '@/lib/utils';
 import { CUISINE_LABELS, STORAGE_LABELS } from '@/lib/recipe-constants';
 
@@ -18,6 +19,9 @@ export default function RecipeDetailPage() {
   const householdId = (membership as unknown as { household?: { id: string } } | null)?.household?.id;
 
   const { data: recipe, isLoading, error } = useRecipeDetail(id ?? null);
+  const { data: cooks = [] } = useRecipeCooks(id ?? null, householdId ?? null);
+  const addSelfAsCook = useAddSelfAsCook();
+  const removeSelfAsCook = useRemoveSelfAsCook();
 
   // Servings scaler
   const [scaledServings, setScaledServings] = useState<number | null>(null);
@@ -63,6 +67,9 @@ export default function RecipeDetailPage() {
     !recipe.is_global &&
     recipe.household_id === householdId &&
     !!user;
+
+  const isCook = cooks.some((c) => c.user_id === user?.id);
+  const members = membership?.members ?? [];
 
   const totalTime = recipe.prep_time_min + recipe.cook_time_min;
 
@@ -229,6 +236,60 @@ export default function RecipeDetailPage() {
                 </li>
               ))}
             </ol>
+          </section>
+        )}
+
+        {/* Cook List */}
+        {householdId && (
+          <section className="mt-6">
+            <h2 className="mb-3 flex items-center gap-2 text-base font-semibold text-white">
+              <UtensilsCrossed className="h-4 w-4 text-slate-400" />
+              Who can cook this
+            </h2>
+            <div className="flex flex-wrap items-center gap-2">
+              {cooks.map((cook) => {
+                const member = members.find((m) => m.user_id === cook.user_id);
+                const name = member?.profile.display_name ?? 'Member';
+                return (
+                  <div
+                    key={cook.id}
+                    className="flex items-center gap-1.5 rounded-full bg-slate-700 px-3 py-1 text-xs text-white"
+                  >
+                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] font-bold">
+                      {name.charAt(0).toUpperCase()}
+                    </span>
+                    {name}
+                  </div>
+                );
+              })}
+              {cooks.length === 0 && (
+                <p className="text-sm text-slate-500">No cooks assigned yet.</p>
+              )}
+            </div>
+            {user && (
+              <div className="mt-3">
+                {isCook ? (
+                  <button
+                    type="button"
+                    onClick={() => removeSelfAsCook.mutate({ recipeId: id!, householdId })}
+                    disabled={removeSelfAsCook.isPending}
+                    className="text-xs text-slate-500 hover:text-red-400 disabled:opacity-50"
+                  >
+                    Remove myself from cook list
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => addSelfAsCook.mutate({ recipeId: id!, householdId })}
+                    disabled={addSelfAsCook.isPending}
+                    className="flex items-center gap-1.5 rounded-full bg-primary/20 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/30 disabled:opacity-50"
+                  >
+                    <UtensilsCrossed className="h-3.5 w-3.5" />
+                    I can cook this too
+                  </button>
+                )}
+              </div>
+            )}
           </section>
         )}
 

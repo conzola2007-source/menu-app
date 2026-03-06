@@ -6,9 +6,10 @@ import Link from 'next/link';
 import { X, ChevronLeft, CalendarDays, ShoppingCart } from 'lucide-react';
 import { Sheet } from '@/components/ui/Sheet';
 import { useMealPlan, useAddSlot, useRemoveSlot, useFinalizeWeek, useUpdatePlanDuration } from '@/hooks/useMealPlan';
-import { useRecipes } from '@/hooks/useRecipes';
+import { useHouseholdPool } from '@/hooks/useRecipes';
 import { useHousehold } from '@/hooks/useHousehold';
 import { useVoteData } from '@/hooks/useVotes';
+import { isHead } from '@/lib/roles';
 import { DayCountPicker } from '@/components/plan/DayCountPicker';
 import { CalendarGrid } from '@/components/plan/CalendarGrid';
 import type { SlotRecipe } from '@/hooks/useMealPlan';
@@ -28,8 +29,11 @@ export default function PlanPage() {
   const router = useRouter();
   const { data: membership, isLoading: householdLoading } = useHousehold();
   const { data: planData, isLoading: planLoading } = useMealPlan();
-  const { data: recipes = [], isLoading: recipesLoading } = useRecipes();
+  const householdId = membership?.household?.id ?? null;
+  const { data: recipes = [], isLoading: recipesLoading } = useHouseholdPool(householdId);
   const { data: voteData } = useVoteData();
+  const currentUserIsHead = membership ? isHead(membership.role) : false;
+  const members = membership?.members ?? [];
 
   const addSlot = useAddSlot();
   const removeSlot = useRemoveSlot();
@@ -66,6 +70,7 @@ export default function PlanPage() {
     emoji: r.emoji,
     bg_color: r.bg_color,
     advance_prep_days: r.advance_prep_days,
+    servings: r.servings ?? 1,
   }));
 
   // ── Handlers ──────────────────────────────────────────────────────────────
@@ -255,6 +260,9 @@ export default function PlanPage() {
           totalMembers={voteData?.totalMembers ?? 0}
           onAddSlot={handleAddSlot}
           onRemoveSlot={handleRemoveSlot}
+          householdId={householdId}
+          isHead={currentUserIsHead}
+          members={members}
         />
       </div>
 

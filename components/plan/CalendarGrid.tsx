@@ -5,6 +5,11 @@ import { DayCell } from './DayCell';
 import type { MealPlanSlot } from '@/hooks/useMealPlan';
 import type { VoteType } from '@/lib/supabase/types';
 
+interface Member {
+  user_id: string;
+  profile: { display_name: string };
+}
+
 interface CalendarGridProps {
   startDate: string;    // YYYY-MM-DD
   durationDays: number;
@@ -14,6 +19,9 @@ interface CalendarGridProps {
   totalMembers: number;
   onAddSlot: (slotDate: string, recipeId: string) => void;
   onRemoveSlot: (slotId: string) => void;
+  householdId: string | null;
+  isHead: boolean;
+  members: Member[];
 }
 
 export function CalendarGrid({
@@ -25,6 +33,9 @@ export function CalendarGrid({
   totalMembers,
   onAddSlot,
   onRemoveSlot,
+  householdId,
+  isHead,
+  members,
 }: CalendarGridProps) {
   const todayISO = toLocalISODate(new Date());
 
@@ -67,6 +78,9 @@ export function CalendarGrid({
             totalMembers={totalMembers}
             onAdd={onAddSlot}
             onRemove={onRemoveSlot}
+            householdId={householdId}
+            isHead={isHead}
+            members={members}
           />
         );
       })}

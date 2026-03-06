@@ -274,24 +274,86 @@ export interface Database {
           updated_at?: string;
         };
       };
+      household_recipes: {
+        Row: {
+          id: string;
+          household_id: string;
+          recipe_id: string;
+          added_by: string | null;
+          added_at: string;
+        };
+        Insert: {
+          id?: string;
+          household_id: string;
+          recipe_id: string;
+          added_by?: string | null;
+          added_at?: string;
+        };
+        Update: {
+          added_by?: string | null;
+        };
+      };
+      recipe_add_requests: {
+        Row: {
+          id: string;
+          household_id: string;
+          recipe_id: string;
+          requested_by: string;
+          status: 'pending' | 'approved' | 'denied';
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          household_id: string;
+          recipe_id: string;
+          requested_by: string;
+          status?: 'pending' | 'approved' | 'denied';
+          created_at?: string;
+        };
+        Update: {
+          status?: 'pending' | 'approved' | 'denied';
+        };
+      };
+      recipe_cooks: {
+        Row: {
+          id: string;
+          recipe_id: string;
+          household_id: string;
+          user_id: string;
+          added_at: string;
+        };
+        Insert: {
+          id?: string;
+          recipe_id: string;
+          household_id: string;
+          user_id: string;
+          added_at?: string;
+        };
+        Update: Record<string, never>;
+      };
       meal_plan_slots: {
         Row: {
           id: string;
           meal_plan_id: string;
           recipe_id: string;
-          day_of_week: number;
-          meal_type: MealType;
+          slot_date: string;
+          chef_id: string | null;
+          servings_override: number | null;
           created_at: string;
         };
         Insert: {
           id?: string;
           meal_plan_id: string;
           recipe_id: string;
-          day_of_week: number;
-          meal_type: MealType;
+          slot_date?: string;
+          chef_id?: string | null;
+          servings_override?: number | null;
         };
         Update: {
           recipe_id?: string;
+          slot_date?: string;
+          chef_id?: string | null;
+          servings_override?: number | null;
         };
       };
       grocery_lists: {
@@ -351,6 +413,14 @@ export interface Database {
       };
     };
     Functions: {
+      approve_recipe_add_request: {
+        Args: { request_id: string };
+        Returns: void;
+      };
+      deny_recipe_add_request: {
+        Args: { request_id: string };
+        Returns: void;
+      };
       my_household_id: {
         Args: Record<string, never>;
         Returns: string | null;

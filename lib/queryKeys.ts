@@ -31,4 +31,14 @@ export const queryKeys = {
   joinRequests: {
     list: (householdId: string) => ['joinRequests', householdId] as const,
   },
+  householdPool: {
+    list: (householdId: string) => ['householdPool', householdId] as const,
+  },
+  recipeAddRequests: {
+    list: (householdId: string) => ['recipeAddRequests', householdId] as const,
+    mine: (householdId: string) => ['recipeAddRequests', householdId, 'mine'] as const,
+  },
+  recipeCooks: {
+    list: (recipeId: string, householdId: string) => ['recipeCooks', recipeId, householdId] as const,
+  },
 } as const;

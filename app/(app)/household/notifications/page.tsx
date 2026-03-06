@@ -2,10 +2,11 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, UserCheck, UserX, Check, X } from 'lucide-react';
+import { ArrowLeft, UserCheck, UserX, Check, X, BookOpen } from 'lucide-react';
 import { useHousehold } from '@/hooks/useHousehold';
 import { useJoinRequests, useAcceptJoinRequest, useDenyJoinRequest } from '@/hooks/useJoinRequests';
 import { useSuggestions, useRespondToSuggestion } from '@/hooks/useSuggestions';
+import { useRecipeAddRequests, useApproveRecipeAddRequest, useDenyRecipeAddRequest } from '@/hooks/useRecipeAddRequests';
 import { ApprovalConditionsSheet } from '@/components/household/ApprovalConditionsSheet';
 import { isHead } from '@/lib/roles';
 
@@ -23,9 +24,15 @@ export default function NotificationsPage() {
     currentUserIsHead ? householdId : undefined,
   );
 
+  const { data: recipeRequests = [] } = useRecipeAddRequests(
+    currentUserIsHead ? householdId : undefined,
+  );
+
   const acceptRequest = useAcceptJoinRequest();
   const denyRequest   = useDenyJoinRequest();
   const respondToSuggestion = useRespondToSuggestion();
+  const approveRecipeRequest = useApproveRecipeAddRequest();
+  const denyRecipeRequest    = useDenyRecipeAddRequest();
 
   const [approvalRequestId,     setApprovalRequestId]     = useState<string | null>(null);
   const [approvalRequesterName, setApprovalRequesterName] = useState('');
@@ -53,7 +60,7 @@ export default function NotificationsPage() {
     return null;
   }
 
-  const isEmpty = joinRequests.length === 0 && suggestions.length === 0;
+  const isEmpty = joinRequests.length === 0 && suggestions.length === 0 && recipeRequests.length === 0;
 
   return (
     <>
@@ -124,6 +131,50 @@ export default function NotificationsPage() {
                       className="flex items-center gap-1 rounded-lg bg-red-500/20 px-2.5 py-1.5 text-xs font-medium text-red-400 hover:bg-red-500/30 disabled:opacity-50"
                     >
                       <UserX className="h-3.5 w-3.5" />
+                      Deny
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* ── Recipe Add Requests ──────────────────────────────────────── */}
+          {recipeRequests.length > 0 && (
+            <section>
+              <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Recipe Requests · {recipeRequests.length}
+              </h2>
+              <div className="flex flex-col divide-y divide-slate-800 rounded-2xl border border-slate-800 bg-slate-900">
+                {recipeRequests.map((req) => (
+                  <div key={req.id} className="flex items-center gap-3 px-4 py-3.5">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-700 text-lg">
+                      {req.recipe?.emoji ?? '🍽️'}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-white truncate">
+                        {req.recipe?.title ?? 'Unknown recipe'}
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        by {req.profile?.display_name ?? 'Unknown'}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => approveRecipeRequest.mutate({ requestId: req.id, householdId: householdId! })}
+                      disabled={approveRecipeRequest.isPending}
+                      className="flex items-center gap-1 rounded-lg bg-green-500/20 px-2.5 py-1.5 text-xs font-medium text-green-400 hover:bg-green-500/30 disabled:opacity-50"
+                    >
+                      <Check className="h-3.5 w-3.5" />
+                      Approve
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => denyRecipeRequest.mutate({ requestId: req.id, householdId: householdId! })}
+                      disabled={denyRecipeRequest.isPending}
+                      className="flex items-center gap-1 rounded-lg bg-red-500/20 px-2.5 py-1.5 text-xs font-medium text-red-400 hover:bg-red-500/30 disabled:opacity-50"
+                    >
+                      <X className="h-3.5 w-3.5" />
                       Deny
                     </button>
                   </div>

@@ -121,7 +121,17 @@ export function useVoteData() {
       const supabase = getSupabaseClient();
       const userId = user!.id;
 
-      // 1. All recipes accessible to this household
+      // 1. All recipes in the household pool + global
+      const { data: poolRows } = await supabase
+        .from('household_recipes')
+        .select('recipe_id')
+        .eq('household_id', householdId);
+      const poolIds = (poolRows ?? []).map((r) => (r as unknown as { recipe_id: string }).recipe_id);
+
+      const recipeFilter = poolIds.length > 0
+        ? `is_global.eq.true,id.in.(${poolIds.join(',')})`
+        : 'is_global.eq.true';
+
       const { data: recipesRaw, error: recipeError } = await supabase
         .from('recipes')
         .select(
@@ -131,7 +141,7 @@ export function useVoteData() {
            ingredients:recipe_ingredients(id, name, amount, unit, storage_location, sort_order),
            steps:recipe_steps(id, step_order, instruction)`,
         )
-        .or(`is_global.eq.true,household_id.eq.${householdId}`)
+        .or(recipeFilter)
         .order('created_at');
 
       if (recipeError) throw recipeError;

@@ -27,12 +27,15 @@ export interface SlotRecipe {
   emoji: string;
   bg_color: string;
   advance_prep_days: number;
+  servings: number;
 }
 
 export interface MealPlanSlot {
   id: string;
   meal_plan_id: string;
   slot_date: string;    // T7-B: actual date string YYYY-MM-DD (replaced day_of_week + meal_type)
+  chef_id: string | null;
+  servings_override: number | null;
   recipe: SlotRecipe;
 }
 
@@ -116,7 +119,7 @@ export function useMealPlan(overrideWeekStart?: string) {
         const { data: slotsRaw, error: slotsErr } = await supabase
           .from('meal_plan_slots')
           .select(
-            'id, meal_plan_id, slot_date, recipe:recipes(id, title, emoji, bg_color, advance_prep_days)',
+            'id, meal_plan_id, slot_date, chef_id, servings_override, recipe:recipes(id, title, emoji, bg_color, advance_prep_days, servings)',
           )
           .eq('meal_plan_id', plan.id)
           .order('slot_date');
@@ -128,12 +131,16 @@ export function useMealPlan(overrideWeekStart?: string) {
             id: string;
             meal_plan_id: string;
             slot_date: string;
+            chef_id: string | null;
+            servings_override: number | null;
             recipe: SlotRecipe | SlotRecipe[] | null;
           }>
         ).map((s) => ({
           id: s.id,
           meal_plan_id: s.meal_plan_id,
           slot_date: s.slot_date,
+          chef_id: s.chef_id ?? null,
+          servings_override: s.servings_override ?? null,
           recipe: Array.isArray(s.recipe)
             ? s.recipe[0]
             : (s.recipe ?? {
@@ -142,6 +149,7 @@ export function useMealPlan(overrideWeekStart?: string) {
                 emoji: '🍽️',
                 bg_color: '#64748b',
                 advance_prep_days: 0,
+                servings: 4,
               }),
         }));
       }
@@ -251,6 +259,8 @@ export function useAddSlot() {
           id: `optimistic-${Date.now()}`,
           meal_plan_id: previous.plan?.id ?? 'pending',
           slot_date: slotDate,
+          chef_id: null,
+          servings_override: null,
           recipe,
         };
         const newSlots = [
@@ -425,6 +435,90 @@ export function useUpdatePlanDuration() {
       if (ctx?.previous) qc.setQueryData(queryKey, ctx.previous);
     },
 
+    onSettled: () => {
+      void qc.invalidateQueries({ queryKey });
+    },
+  });
+}
+
+// ─── useUpdateSlotChef ────────────────────────────────────────────────────────
+
+export function useUpdateSlotChef() {
+  const qc = useQueryClient();
+  const { data: membership } = useHousehold();
+  const householdId = membership?.household?.id ?? '';
+  const weekStart = weekStartISO();
+  const queryKey = queryKeys.mealPlan.week(householdId, weekStart);
+
+  return useMutation({
+    mutationFn: async ({ slotId, chefId }: { slotId: string; chefId: string | null }) => {
+      const supabase = getSupabaseClient();
+      const { error } = await supabase
+        .from('meal_plan_slots')
+        .update({ chef_id: chefId } as never)
+        .eq('id', slotId);
+      if (error) throw error;
+    },
+    onMutate: async ({ slotId, chefId }) => {
+      await qc.cancelQueries({ queryKey });
+      const previous = qc.getQueryData<WeekPlanData>(queryKey);
+      if (previous) {
+        const newSlots = previous.slots.map((s) =>
+          s.id === slotId ? { ...s, chef_id: chefId } : s,
+        );
+        qc.setQueryData<WeekPlanData>(queryKey, {
+          ...previous,
+          slots: newSlots,
+          slotsByDate: buildSlotsByDate(newSlots),
+        });
+      }
+      return { previous };
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.previous) qc.setQueryData(queryKey, ctx.previous);
+    },
+    onSettled: () => {
+      void qc.invalidateQueries({ queryKey });
+    },
+  });
+}
+
+// ─── useUpdateSlotServings ────────────────────────────────────────────────────
+
+export function useUpdateSlotServings() {
+  const qc = useQueryClient();
+  const { data: membership } = useHousehold();
+  const householdId = membership?.household?.id ?? '';
+  const weekStart = weekStartISO();
+  const queryKey = queryKeys.mealPlan.week(householdId, weekStart);
+
+  return useMutation({
+    mutationFn: async ({ slotId, servingsOverride }: { slotId: string; servingsOverride: number | null }) => {
+      const supabase = getSupabaseClient();
+      const { error } = await supabase
+        .from('meal_plan_slots')
+        .update({ servings_override: servingsOverride } as never)
+        .eq('id', slotId);
+      if (error) throw error;
+    },
+    onMutate: async ({ slotId, servingsOverride }) => {
+      await qc.cancelQueries({ queryKey });
+      const previous = qc.getQueryData<WeekPlanData>(queryKey);
+      if (previous) {
+        const newSlots = previous.slots.map((s) =>
+          s.id === slotId ? { ...s, servings_override: servingsOverride } : s,
+        );
+        qc.setQueryData<WeekPlanData>(queryKey, {
+          ...previous,
+          slots: newSlots,
+          slotsByDate: buildSlotsByDate(newSlots),
+        });
+      }
+      return { previous };
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.previous) qc.setQueryData(queryKey, ctx.previous);
+    },
     onSettled: () => {
       void qc.invalidateQueries({ queryKey });
     },

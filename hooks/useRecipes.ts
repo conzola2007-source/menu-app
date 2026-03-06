@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getSupabaseClient } from '@/lib/supabase/client';
 import { queryKeys } from '@/lib/queryKeys';
 import { useHousehold } from './useHousehold';
+import { useAuthStore } from '@/stores/authStore';
 import type { CuisineType, CarbType, ProteinType, IngredientUnit, StorageLocation } from '@/lib/supabase/types';
 
 // ─── Shared recipe types ──────────────────────────────────────────────────────
@@ -52,21 +53,17 @@ export interface RecipeDetail extends Recipe {
   steps: RecipeStep[];
 }
 
-// ─── List hook ────────────────────────────────────────────────────────────────
+// ─── List hook (personal library) ─────────────────────────────────────────────
 
 /**
- * Fetches all recipes visible to the current user:
- * - Global recipes (is_global = true)
- * - Household recipes (household_id = current household)
- *
- * Enabled even without a household — guests see global recipes only.
+ * Personal recipe library: global recipes + recipes I created.
+ * Used on the /recipes page. Does NOT represent the household pool.
  */
 export function useRecipes() {
-  const { data: membership } = useHousehold();
-  const householdId = (membership as unknown as { household?: { id: string } } | null)?.household?.id ?? null;
+  const user = useAuthStore((s) => s.user);
 
   return useQuery({
-    queryKey: queryKeys.recipes.all(householdId ?? 'global'),
+    queryKey: queryKeys.recipes.all(user?.id ?? 'anon'),
     queryFn: async (): Promise<Recipe[]> => {
       const supabase = getSupabaseClient();
 
@@ -77,10 +74,53 @@ export function useRecipes() {
         )
         .order('created_at', { ascending: true });
 
-      const { data, error } = householdId
-        ? await q.or(`is_global.eq.true,household_id.eq.${householdId}`)
-        : await q.eq('is_global', true);
+      const filter = user
+        ? `is_global.eq.true,created_by.eq.${user.id}`
+        : 'is_global.eq.true';
 
+      const { data, error } = await q.or(filter);
+      if (error) throw error;
+      return (data ?? []) as unknown as Recipe[];
+    },
+    enabled: true,
+  });
+}
+
+// ─── Household pool hook ───────────────────────────────────────────────────────
+
+/**
+ * The household recipe pool: recipes explicitly added to household_recipes + global recipes.
+ * Used by the vote page and plan page recipe picker.
+ */
+export function useHouseholdPool(householdId: string | null) {
+  return useQuery({
+    queryKey: queryKeys.householdPool.list(householdId ?? ''),
+    enabled: !!householdId,
+    queryFn: async (): Promise<Recipe[]> => {
+      const supabase = getSupabaseClient();
+
+      // 1. Get recipe IDs in the household pool
+      const { data: poolRows, error: poolErr } = await supabase
+        .from('household_recipes')
+        .select('recipe_id')
+        .eq('household_id', householdId!);
+      if (poolErr) throw poolErr;
+
+      const poolIds = (poolRows ?? []).map((r) => (r as unknown as { recipe_id: string }).recipe_id);
+
+      // 2. Fetch: global + pool
+      const q = supabase
+        .from('recipes')
+        .select(
+          'id, title, description, cuisine, carb_type, protein_type, prep_time_min, cook_time_min, servings, estimated_price, emoji, bg_color, advance_prep_days, advance_prep_note, is_global, household_id, created_by, created_at, updated_at'
+        )
+        .order('created_at', { ascending: true });
+
+      const filter = poolIds.length > 0
+        ? `is_global.eq.true,id.in.(${poolIds.join(',')})`
+        : 'is_global.eq.true';
+
+      const { data, error } = await q.or(filter);
       if (error) throw error;
       return (data ?? []) as unknown as Recipe[];
     },
@@ -218,10 +258,19 @@ export function useCreateRecipe() {
       if (ingErr) throw ingErr;
       if (stepErr) throw stepErr;
 
+      // Auto-add to household pool so it shows up in voting
+      if (payload.household_id) {
+        await supabase
+          .from('household_recipes')
+          .insert({ household_id: payload.household_id, recipe_id: recipe.id, added_by: user.id } as never)
+          .then(() => void 0);
+      }
+
       return recipe.id;
     },
     onSuccess: (_, variables) => {
       qc.invalidateQueries({ queryKey: queryKeys.recipes.all(variables.household_id) });
+      qc.invalidateQueries({ queryKey: queryKeys.householdPool.list(variables.household_id) });
     },
   });
 }

@@ -56,7 +56,7 @@ const recipeSchema = z.object({
   protein_type: z.enum(PROTEIN_TYPES),
   prep_time_min: z.coerce.number().int().min(0).max(480).default(15),
   cook_time_min: z.coerce.number().int().min(0).max(480).default(30),
-  servings: z.coerce.number().int().min(1).max(20).default(4),
+  servings: z.coerce.number().int().min(1).max(20).default(1),
   emoji: z.string().min(1, 'Pick an emoji'),
   bg_color: z.string().min(1, 'Pick a colour'),
   advance_prep_days: z.coerce.number().int().min(0).max(7).default(0),
@@ -200,7 +200,7 @@ export function RecipeForm({ initial, onSubmit, submitLabel = 'Save recipe' }: R
           protein_type: 'none',
           prep_time_min: 15,
           cook_time_min: 30,
-          servings: 4,
+          servings: 1,
           emoji: '🍳',
           bg_color: BG_COLORS[0],
           advance_prep_days: 0,
@@ -380,8 +380,8 @@ export function RecipeForm({ initial, onSubmit, submitLabel = 'Save recipe' }: R
             </div>
           </div>
 
-          {/* Times + Servings */}
-          <div className="grid grid-cols-3 gap-3">
+          {/* Times */}
+          <div className="grid grid-cols-2 gap-3">
             <div>
               <Label htmlFor="prep_time_min">Prep (min)</Label>
               <Input
@@ -402,17 +402,6 @@ export function RecipeForm({ initial, onSubmit, submitLabel = 'Save recipe' }: R
                 max={480}
                 error={errors.cook_time_min?.message}
                 {...register('cook_time_min')}
-              />
-            </div>
-            <div>
-              <Label htmlFor="servings">Servings</Label>
-              <Input
-                id="servings"
-                type="number"
-                min={1}
-                max={20}
-                error={errors.servings?.message}
-                {...register('servings')}
               />
             </div>
           </div>
@@ -469,6 +458,23 @@ export function RecipeForm({ initial, onSubmit, submitLabel = 'Save recipe' }: R
             Tap to set advance prep requirements (marinating, soaking, etc.)
           </p>
         )}
+      </section>
+
+      {/* ── Servings ── */}
+      <section className="rounded-2xl border border-slate-700 bg-slate-800 p-4">
+        <Label className="mb-3 block">This recipe serves</Label>
+        <div className="flex items-center gap-3">
+          <Input
+            id="servings"
+            type="number"
+            min={1}
+            max={20}
+            error={errors.servings?.message}
+            className="w-20"
+            {...register('servings')}
+          />
+          <span className="text-sm text-slate-400">people</span>
+        </div>
       </section>
 
       {/* ── Ingredients ── */}

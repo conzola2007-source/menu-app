@@ -2,8 +2,12 @@
 
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
-import { Search, Plus, SlidersHorizontal, X } from 'lucide-react';
-import { useRecipes } from '@/hooks/useRecipes';
+import { Search, Plus, SlidersHorizontal, X, CheckCircle, Clock3 } from 'lucide-react';
+import { useRecipes, useHouseholdPool } from '@/hooks/useRecipes';
+import { useHousehold } from '@/hooks/useHousehold';
+import { useAuthStore } from '@/stores/authStore';
+import { useMyRecipeAddRequests, useSubmitRecipeAddRequest, useAddRecipeToPool } from '@/hooks/useRecipeAddRequests';
+import { isHead } from '@/lib/roles';
 import { RecipeCard } from '@/components/recipe/RecipeCard';
 import {
   CUISINE_TYPES, CUISINE_LABELS,
@@ -16,6 +20,21 @@ type SourceFilter = 'all' | 'global' | 'mine';
 
 export default function RecipesPage() {
   const { data: recipes = [], isLoading, error } = useRecipes();
+  const { data: membership } = useHousehold();
+  const user = useAuthStore((s) => s.user);
+  const householdId = membership?.household?.id ?? null;
+  const currentUserIsHead = membership ? isHead(membership.role) : false;
+
+  const { data: poolRecipes = [] } = useHouseholdPool(householdId);
+  const { data: myRequests = [] } = useMyRecipeAddRequests(householdId);
+  const addToPool = useAddRecipeToPool();
+  const submitRequest = useSubmitRecipeAddRequest();
+
+  const poolIds = useMemo(() => new Set(poolRecipes.map((r) => r.id)), [poolRecipes]);
+  const pendingIds = useMemo(
+    () => new Set(myRequests.filter((r) => r.status === 'pending').map((r) => r.recipe_id)),
+    [myRequests],
+  );
 
   // ── Filter state ──
   const [search, setSearch] = useState('');
@@ -296,9 +315,43 @@ export default function RecipesPage() {
               {activeFilterCount > 0 || search ? ' (filtered)' : ''}
             </p>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-              {filtered.map((recipe) => (
-                <RecipeCard key={recipe.id} recipe={recipe} />
-              ))}
+              {filtered.map((recipe) => {
+                const isOwn = recipe.created_by === user?.id;
+                const inPool = poolIds.has(recipe.id);
+                const isPending = pendingIds.has(recipe.id);
+                return (
+                  <div key={recipe.id} className="flex flex-col gap-1">
+                    <RecipeCard recipe={recipe} />
+                    {isOwn && !recipe.is_global && householdId && (
+                      inPool ? (
+                        <div className="flex items-center gap-1 px-1 text-xs text-green-400">
+                          <CheckCircle className="h-3 w-3" />
+                          In pool
+                        </div>
+                      ) : isPending ? (
+                        <div className="flex items-center gap-1 px-1 text-xs text-amber-400">
+                          <Clock3 className="h-3 w-3" />
+                          Pending
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (currentUserIsHead) {
+                              addToPool.mutate({ householdId, recipeId: recipe.id });
+                            } else {
+                              submitRequest.mutate({ householdId, recipeId: recipe.id });
+                            }
+                          }}
+                          className="px-1 text-left text-xs text-primary hover:underline"
+                        >
+                          {currentUserIsHead ? '+ Add to pool' : '+ Request to add'}
+                        </button>
+                      )
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </>
         )}
