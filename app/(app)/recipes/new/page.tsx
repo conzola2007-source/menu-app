@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Link2 } from 'lucide-react';
 import { RecipeForm } from '@/components/recipe/RecipeForm';
@@ -20,6 +20,20 @@ export default function NewRecipePage() {
   const [importedDefaults, setImportedDefaults] = useState<Partial<RecipeFormValues> | undefined>();
   // Key forces RecipeForm to remount with fresh defaultValues after import
   const [formKey, setFormKey] = useState(0);
+
+  // Pick up data pre-seeded by the Import URL button on the /recipes listing page
+  useEffect(() => {
+    const stored = sessionStorage.getItem('importedRecipe');
+    if (!stored) return;
+    sessionStorage.removeItem('importedRecipe');
+    try {
+      const data: ScrapedRecipe = JSON.parse(stored);
+      handleImported(data);
+    } catch {
+      // ignore malformed data
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function handleSubmit(values: RecipeFormValues) {
     if (!householdId) throw new Error('No household found. Join or create one first.');

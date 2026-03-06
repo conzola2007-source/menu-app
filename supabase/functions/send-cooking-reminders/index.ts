@@ -71,7 +71,7 @@ Deno.serve(async () => {
       // Find slots for today that haven't had reminders sent
       const { data: slots } = await supabase
         .from('meal_plan_slots')
-        .select('id, recipe_id, recipes!inner(title, emoji)')
+        .select('id, recipe_id, chef_id, recipes!inner(title, emoji)')
         .eq('meal_plan_id', plan.id)
         .eq('slot_date', todayInTz)
         .is('cooking_reminder_sent_at', null);
@@ -80,10 +80,15 @@ Deno.serve(async () => {
 
       for (const slot of slots) {
         const recipe = (slot as Record<string, unknown>).recipes as { title: string; emoji: string };
+        const chefId = (slot as Record<string, unknown>).chef_id as string | null;
         const title = `🍽️ Cooking reminder`;
         const body = `${recipe.emoji} ${recipe.title} is on the menu tonight!`;
 
-        // Send push to all household members
+        // Send push to assigned chef only; fall back to all household members if no chef set
+        const target = chefId
+          ? { userId: chefId }
+          : { householdId: plan.household_id };
+
         const res = await fetch(`${APP_URL}/api/push/send`, {
           method: 'POST',
           headers: {
@@ -91,7 +96,7 @@ Deno.serve(async () => {
             'x-push-secret': PUSH_API_SECRET,
           },
           body: JSON.stringify({
-            householdId: plan.household_id,
+            ...target,
             type: 'cooking_reminder',
             title,
             body,

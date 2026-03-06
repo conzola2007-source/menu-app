@@ -2,28 +2,33 @@
 
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
-import { Search, Plus, SlidersHorizontal, X, CheckCircle, Clock3 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Search, Plus, SlidersHorizontal, X, CheckCircle, Clock3, Link2 } from 'lucide-react';
 import { useRecipes, useHouseholdPool } from '@/hooks/useRecipes';
 import { useHousehold } from '@/hooks/useHousehold';
 import { useAuthStore } from '@/stores/authStore';
 import { useMyRecipeAddRequests, useSubmitRecipeAddRequest, useAddRecipeToPool } from '@/hooks/useRecipeAddRequests';
 import { isHead } from '@/lib/roles';
 import { RecipeCard } from '@/components/recipe/RecipeCard';
+import { ImportRecipeSheet } from '@/components/recipe/ImportRecipeSheet';
 import {
   CUISINE_TYPES, CUISINE_LABELS,
   CARB_TYPES, CARB_LABELS,
   PROTEIN_TYPES, PROTEIN_LABELS,
 } from '@/lib/recipe-constants';
+import type { ScrapedRecipe } from '@/lib/recipe-scraper';
 
 type CookTimeFilter = 'any' | 'under30' | '30to60' | 'over60';
 type SourceFilter = 'all' | 'global' | 'mine';
 
 export default function RecipesPage() {
+  const router = useRouter();
   const { data: recipes = [], isLoading, error } = useRecipes();
   const { data: membership } = useHousehold();
   const user = useAuthStore((s) => s.user);
   const householdId = membership?.household?.id ?? null;
   const currentUserIsHead = membership ? isHead(membership.role) : false;
+  const [showImport, setShowImport] = useState(false);
 
   const { data: poolRecipes = [] } = useHouseholdPool(householdId);
   const { data: myRequests = [] } = useMyRecipeAddRequests(householdId);
@@ -74,19 +79,34 @@ export default function RecipesPage() {
     setCookTime('any'); setSource('all');
   }
 
+  function handleImported(data: ScrapedRecipe) {
+    sessionStorage.setItem('importedRecipe', JSON.stringify(data));
+    router.push('/recipes/new');
+  }
+
   return (
     <div className="flex min-h-screen flex-col bg-slate-900 pb-24">
       {/* Header */}
       <div className="sticky top-0 z-10 border-b border-slate-800 bg-slate-900/95 px-4 pb-3 pt-safe backdrop-blur">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-2">
           <h1 className="text-lg font-bold text-white">Recipes</h1>
-          <Link
-            href="/recipes/new"
-            className="flex items-center gap-1.5 rounded-full bg-primary px-3 py-1.5 text-sm font-medium text-white"
-          >
-            <Plus className="h-4 w-4" />
-            Add
-          </Link>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setShowImport(true)}
+              className="flex items-center gap-1.5 rounded-full border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs font-medium text-slate-300 hover:border-slate-500 hover:text-white"
+            >
+              <Link2 className="h-3.5 w-3.5" />
+              Import URL
+            </button>
+            <Link
+              href="/recipes/new"
+              className="flex items-center gap-1.5 rounded-full bg-primary px-3 py-1.5 text-sm font-medium text-white"
+            >
+              <Plus className="h-4 w-4" />
+              Add
+            </Link>
+          </div>
         </div>
 
         {/* Search bar */}
@@ -356,6 +376,12 @@ export default function RecipesPage() {
           </>
         )}
       </div>
+
+      <ImportRecipeSheet
+        isOpen={showImport}
+        onClose={() => setShowImport(false)}
+        onImported={handleImported}
+      />
     </div>
   );
 }
