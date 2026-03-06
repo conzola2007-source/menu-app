@@ -98,7 +98,7 @@ function JoinRequestsSection({ householdId }: { householdId: string }) {
 
   async function handleAccept(requestId: string) {
     setProcessingId(requestId);
-    try { await accept.mutateAsync(requestId); } finally { setProcessingId(null); }
+    try { await accept.mutateAsync({ requestId, assignRole: 'member' }); } finally { setProcessingId(null); }
   }
 
   async function handleDeny(requestId: string) {
