@@ -13,6 +13,7 @@ import { Avatar } from '@/components/household/MemberList';
 export default function ProfilePage() {
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
+  const activeHouseholdId = useAuthStore((s) => s.activeHouseholdId);
   const { signOut } = useAuthStore();
   const { data: membership, isLoading } = useHousehold();
   const queryClient = useQueryClient();
@@ -56,7 +57,7 @@ export default function ProfilePage() {
         .update({ display_name: trimmed })
         .eq('id', user!.id);
       if (error) throw error;
-      await queryClient.invalidateQueries({ queryKey: queryKeys.household.current() });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.household.current(activeHouseholdId) });
       setEditing(false);
     } catch {
       setSaveError('Failed to update name. Please try again.');

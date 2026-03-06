@@ -120,7 +120,7 @@ export default function JoinHouseholdPage() {
       }
 
       setActiveHousehold(preview.id);
-      await queryClient.invalidateQueries({ queryKey: queryKeys.household.current() });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.household.current(preview.id) });
       await queryClient.invalidateQueries({ queryKey: queryKeys.household.all() });
       router.push('/vote');
       return;

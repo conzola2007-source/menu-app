@@ -3,7 +3,7 @@
 
 export const queryKeys = {
   household: {
-    current: () => ['household', 'current'] as const,
+    current: (activeId?: string | null) => ['household', 'current', activeId ?? 'none'] as const,
     all: () => ['household', 'all'] as const,
     members: (householdId: string) => ['household', householdId, 'members'] as const,
   },

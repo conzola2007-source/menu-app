@@ -79,26 +79,6 @@ export default function VotePage() {
     }
   }, [isRevoteMode, localQueue, router]);
 
-  // Normal vote complete — redirect to plan ONLY when the queue transitions
-  // from having items to empty (i.e. the user just voted the last card).
-  // If the user navigates BACK to this page with an already-empty queue, the
-  // prev value starts as null so no redirect fires and we show the results.
-  const prevNormalQueueLenRef = useRef<number | null>(null);
-  const [justCompletedNormalVote, setJustCompletedNormalVote] = useState(false);
-
-  useEffect(() => {
-    if (isRevoteMode || localQueue === null) {
-      prevNormalQueueLenRef.current = null;
-      return;
-    }
-    const prev = prevNormalQueueLenRef.current;
-    prevNormalQueueLenRef.current = localQueue.length;
-
-    if (prev !== null && prev > 0 && localQueue.length === 0) {
-      setJustCompletedNormalVote(true);
-      router.replace('/plan');
-    }
-  }, [isRevoteMode, localQueue, router]);
 
   const isLoading = householdLoading || voteLoading;
 
@@ -170,9 +150,8 @@ export default function VotePage() {
   if (allVotedByMe) {
     // Revote just finished — redirect imminent, show nothing to avoid flash.
     if (isRevoteMode) return null;
-    // Normal vote just finished — redirect imminent, show nothing.
-    if (justCompletedNormalVote) return null;
-    // User navigated BACK from plan — show the results screen.
+    // Normal vote done — show results screen.
+    // "Allocate to week" button appears in VoteResults once all members finish.
     return (
       <div className="min-h-screen bg-slate-900 pb-24 px-4 pt-4">
         <VoteResults

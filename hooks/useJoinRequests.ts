@@ -2,6 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getSupabaseClient } from '@/lib/supabase/client';
+import { useAuthStore } from '@/stores/authStore';
 import { queryKeys } from '@/lib/queryKeys';
 
 export interface JoinRequest {
@@ -77,8 +78,9 @@ export function useAcceptJoinRequest() {
       if (error) throw error;
     },
     onSuccess: (_data, _vars, _ctx) => {
+      const activeHouseholdId = useAuthStore.getState().activeHouseholdId;
       void queryClient.invalidateQueries({ queryKey: ['joinRequests'] });
-      void queryClient.invalidateQueries({ queryKey: queryKeys.household.current() });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.household.current(activeHouseholdId) });
       void queryClient.invalidateQueries({ queryKey: queryKeys.household.all() });
     },
   });
@@ -114,7 +116,8 @@ export function useRemoveMember() {
       if (error) throw error;
     },
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.household.current() });
+      const activeHouseholdId = useAuthStore.getState().activeHouseholdId;
+      void queryClient.invalidateQueries({ queryKey: queryKeys.household.current(activeHouseholdId) });
       void queryClient.invalidateQueries({ queryKey: queryKeys.household.all() });
     },
   });

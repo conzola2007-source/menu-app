@@ -156,6 +156,7 @@ function JoinRequestsSection({ householdId }: { householdId: string }) {
 export default function AccountPage() {
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
+  const activeHouseholdId = useAuthStore((s) => s.activeHouseholdId);
   const { signOut } = useAuthStore();
   const { data: membership, isLoading } = useHousehold();
   const queryClient = useQueryClient();
@@ -195,7 +196,7 @@ export default function AccountPage() {
         .update({ display_name: trimmed })
         .eq('id', user!.id);
       if (error) throw error;
-      await queryClient.invalidateQueries({ queryKey: queryKeys.household.current() });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.household.current(activeHouseholdId) });
       setEditingName(false);
     } catch {
       setNameError('Failed to update name.');
@@ -254,7 +255,7 @@ export default function AccountPage() {
               currentAvatarUrl={avatarUrl ?? myMemberAvatar}
               onUploaded={(url) => {
                 setAvatarUrl(url);
-                void queryClient.invalidateQueries({ queryKey: queryKeys.household.current() });
+                void queryClient.invalidateQueries({ queryKey: queryKeys.household.current(activeHouseholdId) });
               }}
             />
           )}

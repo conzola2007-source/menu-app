@@ -120,7 +120,7 @@ export function useHousehold() {
   const activeHouseholdId = useAuthStore((s) => s.activeHouseholdId);
 
   return useQuery({
-    queryKey: queryKeys.household.current(),
+    queryKey: queryKeys.household.current(activeHouseholdId),
     enabled: !!user,
     queryFn: async (): Promise<HouseholdMembership | null> => {
       const supabase = getSupabaseClient();
