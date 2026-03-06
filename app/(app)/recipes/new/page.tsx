@@ -37,6 +37,8 @@ export default function NewRecipePage() {
         unit: ing.unit as IngredientUnit,
         storage_location: ing.storage_location as StorageLocation,
         sort_order: i,
+        pack_qty: (ing as unknown as { pack_qty?: number | null }).pack_qty ?? null,
+        pack_price: (ing as unknown as { pack_price?: number | null }).pack_price ?? null,
       })),
       steps: values.steps.map((step, i) => ({
         instruction: step.instruction,

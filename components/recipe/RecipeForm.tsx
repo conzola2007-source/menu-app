@@ -42,6 +42,8 @@ const ingredientSchema = z.object({
   amount: z.coerce.number().positive('Must be > 0'),
   unit: z.enum(['g', 'ml', 'kg', 'l', 'oz', 'lb', 'cup', 'tbsp', 'tsp', 'qty', 'piece', 'pack', 'bag', 'bottle']),
   storage_location: z.enum(['pantry', 'fridge', 'freezer', 'other']),
+  pack_qty: z.union([z.coerce.number().positive(), z.literal('')]).optional().transform((v) => (v === '' || v === undefined ? null : Number(v))),
+  pack_price: z.union([z.coerce.number().positive(), z.literal('')]).optional().transform((v) => (v === '' || v === undefined ? null : Number(v))),
 });
 
 const stepSchema = z.object({
@@ -70,7 +72,7 @@ export type RecipeFormValues = z.infer<typeof recipeSchema>;
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function defaultIngredient() {
-  return { name: '', amount: 0 as unknown as number, unit: 'g' as const, storage_location: 'pantry' as const };
+  return { name: '', amount: 0 as unknown as number, unit: 'g' as const, storage_location: 'pantry' as const, pack_qty: null as number | null, pack_price: null as number | null };
 }
 
 function defaultStep() {
@@ -96,6 +98,8 @@ function recipeToFormValues(recipe: RecipeDetail): RecipeFormValues {
       amount: ing.amount,
       unit: ing.unit,
       storage_location: ing.storage_location,
+      pack_qty: (ing as unknown as { pack_qty?: number | null }).pack_qty ?? null,
+      pack_price: (ing as unknown as { pack_price?: number | null }).pack_price ?? null,
     })),
     steps: recipe.steps.map((s) => ({ instruction: s.instruction })),
   };

@@ -3,12 +3,14 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { X, ChevronLeft, CalendarDays, ShoppingCart } from 'lucide-react';
+import { X, ChevronLeft, CalendarDays, ShoppingCart, Package, Plus, Check } from 'lucide-react';
 import { Sheet } from '@/components/ui/Sheet';
 import { useMealPlan, useAddSlot, useRemoveSlot, useFinalizeWeek, useUpdatePlanDuration } from '@/hooks/useMealPlan';
 import { useHouseholdPool } from '@/hooks/useRecipes';
 import { useHousehold } from '@/hooks/useHousehold';
 import { useVoteData } from '@/hooks/useVotes';
+import { useHouseholdSettings } from '@/hooks/useHouseholdSettings';
+import { usePacks, usePlanPacks, useAttachPack, useDetachPack } from '@/hooks/usePacks';
 import { isHead } from '@/lib/roles';
 import { DayCountPicker } from '@/components/plan/DayCountPicker';
 import { CalendarGrid } from '@/components/plan/CalendarGrid';
@@ -30,8 +32,14 @@ export default function PlanPage() {
   const { data: membership, isLoading: householdLoading } = useHousehold();
   const { data: planData, isLoading: planLoading } = useMealPlan();
   const householdId = membership?.household?.id ?? null;
+  const planId = planData?.plan?.id ?? null;
   const { data: recipes = [], isLoading: recipesLoading } = useHouseholdPool(householdId);
   const { data: voteData } = useVoteData();
+  const { data: householdSettings } = useHouseholdSettings(householdId);
+  const { data: packs = [] } = usePacks(householdId);
+  const { data: planPacks = [] } = usePlanPacks(planId);
+  const attachPack = useAttachPack();
+  const detachPack = useDetachPack();
   const currentUserIsHead = membership ? isHead(membership.role) : false;
   const members = membership?.members ?? [];
 
@@ -45,16 +53,19 @@ export default function PlanPage() {
   const [durationDays, setDurationDays] = useState(7);
   const [durationConfirmed, setDurationConfirmed] = useState(false);
   const [showDayPicker, setShowDayPicker] = useState(false);
+  const [showPackPicker, setShowPackPicker] = useState(false);
   // Pending duration while picker sheet is open
   const [pendingDuration, setPendingDuration] = useState(7);
 
-  // Sync duration from loaded plan
+  // Sync duration from loaded plan, then fall back to household default
   useEffect(() => {
     if (planData?.plan?.duration_days) {
       setDurationDays(planData.plan.duration_days);
       setDurationConfirmed(true);
+    } else if (householdSettings?.default_duration_days) {
+      setDurationDays(householdSettings.default_duration_days);
     }
-  }, [planData?.plan?.duration_days]);
+  }, [planData?.plan?.duration_days, householdSettings?.default_duration_days]);
 
   // Auto-clear toast
   useEffect(() => {
@@ -249,8 +260,43 @@ export default function PlanPage() {
         </div>
       )}
 
+      {/* Packs section */}
+      {(planPacks.length > 0 || currentUserIsHead) && (
+        <div className="flex items-center gap-2 overflow-x-auto px-4 pt-3 pb-1">
+          {planPacks.map((pp) => (
+            <div
+              key={pp.id}
+              className="flex shrink-0 items-center gap-1.5 rounded-full border border-primary/40 bg-primary/10 pl-2.5 pr-1.5 py-1"
+            >
+              <Package className="h-3 w-3 text-primary" />
+              <span className="text-xs font-medium text-primary">{pp.pack.name}</span>
+              {currentUserIsHead && (
+                <button
+                  type="button"
+                  onClick={() => void detachPack.mutateAsync({ mealPlanPackId: pp.id, planId: planId! })}
+                  className="ml-0.5 rounded-full p-0.5 text-primary/60 hover:bg-primary/20 hover:text-primary"
+                  aria-label="Remove pack"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              )}
+            </div>
+          ))}
+          {currentUserIsHead && planId && (
+            <button
+              type="button"
+              onClick={() => setShowPackPicker(true)}
+              className="flex shrink-0 items-center gap-1 rounded-full border border-slate-700 bg-slate-800 px-2.5 py-1 text-xs text-slate-400 hover:border-slate-500 hover:text-white"
+            >
+              <Plus className="h-3 w-3" />
+              Add pack
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Calendar grid */}
-      <div className="px-4 pt-4">
+      <div className="px-4 pt-3">
         <CalendarGrid
           startDate={startDate}
           durationDays={durationDays}
@@ -296,6 +342,51 @@ export default function PlanPage() {
           >
             Use {pendingDuration}-day plan
           </button>
+        </div>
+      </Sheet>
+
+      {/* Pack picker sheet */}
+      <Sheet
+        isOpen={showPackPicker}
+        onClose={() => setShowPackPicker(false)}
+        title="Add a pack"
+      >
+        <div className="flex flex-col gap-2 px-4 py-4">
+          {packs.length === 0 ? (
+            <p className="py-6 text-center text-sm text-slate-500">No packs yet. Create one from the household menu.</p>
+          ) : (
+            packs.map((pack) => {
+              const attached = planPacks.some((pp) => pp.pack_id === pack.id);
+              return (
+                <button
+                  key={pack.id}
+                  type="button"
+                  onClick={() => {
+                    if (!planId) return;
+                    if (attached) {
+                      const pp = planPacks.find((p) => p.pack_id === pack.id);
+                      if (pp) void detachPack.mutateAsync({ mealPlanPackId: pp.id, planId });
+                    } else {
+                      void attachPack.mutateAsync({ planId, packId: pack.id });
+                    }
+                  }}
+                  className={`flex items-center gap-3 rounded-xl border px-3 py-3 text-left transition-colors ${
+                    attached
+                      ? 'border-primary/50 bg-primary/10'
+                      : 'border-slate-700 bg-slate-800 hover:border-slate-600'
+                  }`}
+                >
+                  <Package className={`h-5 w-5 shrink-0 ${attached ? 'text-primary' : 'text-slate-500'}`} />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-white">{pack.name}</p>
+                    {pack.description && <p className="text-xs text-slate-500">{pack.description}</p>}
+                    <p className="mt-0.5 text-xs text-slate-600">{pack.items.length} recipe{pack.items.length !== 1 ? 's' : ''}</p>
+                  </div>
+                  {attached && <Check className="h-4 w-4 shrink-0 text-primary" />}
+                </button>
+              );
+            })
+          )}
         </div>
       </Sheet>
     </div>

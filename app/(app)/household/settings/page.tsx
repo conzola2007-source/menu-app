@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, RefreshCw, LogOut, Trash2, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, RefreshCw, LogOut, Trash2, AlertTriangle, Plus, X, Check } from 'lucide-react';
 import { useHousehold } from '@/hooks/useHousehold';
 import { useAuthStore } from '@/stores/authStore';
 import { useJoinRequests, useAcceptJoinRequest, useDenyJoinRequest } from '@/hooks/useJoinRequests';
@@ -13,6 +13,8 @@ import { isHead } from '@/lib/roles';
 import { InviteCodeDisplay } from '@/components/household/InviteCodeDisplay';
 import { MemberList } from '@/components/household/MemberList';
 import { ApprovalConditionsSheet } from '@/components/household/ApprovalConditionsSheet';
+import { useHouseholdSettings, useUpdateHouseholdSettings } from '@/hooks/useHouseholdSettings';
+import { useStorageCategories, useAddStorageCategory, useDeleteStorageCategory } from '@/hooks/useStorageCategories';
 
 // ─── Secure code generator ────────────────────────────────────────────────────
 
@@ -34,6 +36,7 @@ export default function HouseholdSettingsPage() {
   const setActiveHousehold = useAuthStore((s) => s.setActiveHousehold);
   const { data: membership, isLoading } = useHousehold();
   const queryClient = useQueryClient();
+  const householdId = membership?.household?.id ?? null;
 
   const [regenLoading,  setRegenLoading]  = useState(false);
   const [leaveLoading,  setLeaveLoading]  = useState(false);
@@ -44,6 +47,42 @@ export default function HouseholdSettingsPage() {
   // ApprovalConditionsSheet state
   const [approvalRequestId,   setApprovalRequestId]   = useState<string | null>(null);
   const [approvalRequesterName, setApprovalRequesterName] = useState('');
+
+  // Plan settings state
+  const { data: planSettings } = useHouseholdSettings(householdId);
+  const { data: storageCategories = [] } = useStorageCategories(householdId);
+  const updateSettings = useUpdateHouseholdSettings();
+  const addCategory = useAddStorageCategory();
+  const deleteCategory = useDeleteStorageCategory();
+  const [weekStartDay, setWeekStartDay] = useState(1);
+  const [dinnerTime, setDinnerTime] = useState('18:00');
+  const [defaultDays, setDefaultDays] = useState(7);
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [settingsSaved, setSettingsSaved] = useState(false);
+
+  useEffect(() => {
+    if (planSettings) {
+      setWeekStartDay(planSettings.week_start_day);
+      setDinnerTime(planSettings.dinner_time);
+      setDefaultDays(planSettings.default_duration_days);
+    }
+  }, [planSettings]);
+
+  async function handleSaveSettings() {
+    if (!householdId) return;
+    await updateSettings.mutateAsync({
+      householdId,
+      settings: { week_start_day: weekStartDay, dinner_time: dinnerTime, default_duration_days: defaultDays },
+    });
+    setSettingsSaved(true);
+    setTimeout(() => setSettingsSaved(false), 2000);
+  }
+
+  async function handleAddCategory() {
+    if (!householdId || !newCategoryName.trim()) return;
+    await addCategory.mutateAsync({ householdId, name: newCategoryName.trim() });
+    setNewCategoryName('');
+  }
 
   const currentUserIsHead = membership ? isHead(membership.role) : false;
   // Only the creator can delete the household
@@ -218,6 +257,127 @@ export default function HouseholdSettingsPage() {
               <MemberList members={membership.members} currentUserId={user?.id ?? null} />
             </div>
           </section>
+
+          {/* ── Plan defaults (heads only) ── */}
+          {currentUserIsHead && (
+            <section>
+              <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Plan defaults
+              </h2>
+              <div className="flex flex-col gap-4 rounded-2xl border border-slate-800 bg-slate-900 p-4">
+                {/* Week start day */}
+                <div>
+                  <p className="mb-2 text-sm font-medium text-white">Week starts on</p>
+                  <div className="flex gap-2">
+                    {[{ label: 'Monday', value: 1 }, { label: 'Sunday', value: 0 }].map(({ label, value }) => (
+                      <button
+                        key={value}
+                        type="button"
+                        onClick={() => setWeekStartDay(value)}
+                        className={`flex-1 rounded-xl py-2.5 text-sm font-medium transition-colors ${
+                          weekStartDay === value
+                            ? 'bg-primary text-white'
+                            : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Dinner time */}
+                <div>
+                  <p className="mb-2 text-sm font-medium text-white">Default dinner time</p>
+                  <input
+                    type="time"
+                    value={dinnerTime}
+                    onChange={(e) => setDinnerTime(e.target.value)}
+                    className="w-full rounded-xl border border-slate-700 bg-slate-800 px-4 py-2.5 text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
+                </div>
+
+                {/* Default plan length */}
+                <div>
+                  <p className="mb-2 text-sm font-medium text-white">Default plan length</p>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="number"
+                      min={1}
+                      max={14}
+                      value={defaultDays}
+                      onChange={(e) => setDefaultDays(Math.min(14, Math.max(1, parseInt(e.target.value) || 7)))}
+                      className="w-20 rounded-xl border border-slate-700 bg-slate-800 px-3 py-2 text-center text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                    <span className="text-sm text-slate-400">days</span>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => void handleSaveSettings()}
+                  disabled={updateSettings.isPending}
+                  className="flex items-center justify-center gap-2 rounded-2xl bg-primary py-2.5 text-sm font-semibold text-white disabled:opacity-60"
+                >
+                  {settingsSaved ? (
+                    <><Check className="h-4 w-4" /> Saved!</>
+                  ) : updateSettings.isPending ? 'Saving…' : 'Save plan settings'}
+                </button>
+              </div>
+            </section>
+          )}
+
+          {/* ── Custom storage categories (heads only) ── */}
+          {currentUserIsHead && (
+            <section>
+              <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Storage categories
+              </h2>
+              <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
+                <div className="mb-3 flex flex-wrap gap-2">
+                  {storageCategories.map((cat) => (
+                    <span
+                      key={cat.id}
+                      className="flex items-center gap-1.5 rounded-full border border-slate-700 bg-slate-800 px-3 py-1 text-xs text-white"
+                    >
+                      {cat.name}
+                      <button
+                        type="button"
+                        onClick={() => void deleteCategory.mutateAsync({ id: cat.id, householdId: householdId! })}
+                        className="text-slate-500 hover:text-red-400"
+                        aria-label={`Remove ${cat.name}`}
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </span>
+                  ))}
+                  {storageCategories.length === 0 && (
+                    <p className="text-xs text-slate-500">No custom categories yet.</p>
+                  )}
+                </div>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={newCategoryName}
+                    onChange={(e) => setNewCategoryName(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') void handleAddCategory(); }}
+                    placeholder="e.g. Spice rack"
+                    maxLength={50}
+                    className="flex-1 rounded-xl border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => void handleAddCategory()}
+                    disabled={!newCategoryName.trim() || addCategory.isPending}
+                    className="flex items-center gap-1 rounded-xl bg-primary px-3 py-2 text-sm font-medium text-white disabled:opacity-40"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Add
+                  </button>
+                </div>
+              </div>
+            </section>
+          )}
 
           {/* Pending join requests — moved to Notifications page; show count only */}
           {currentUserIsHead && joinRequests.length > 0 && (

@@ -41,6 +41,9 @@ export interface Database {
           name: string;
           owner_id: string;
           invite_code: string;
+          week_start_day: number;
+          dinner_time: string;
+          default_duration_days: number;
           created_at: string;
           updated_at: string;
         };
@@ -49,6 +52,9 @@ export interface Database {
           name: string;
           owner_id: string;
           invite_code: string;
+          week_start_day?: number;
+          dinner_time?: string;
+          default_duration_days?: number;
           created_at?: string;
           updated_at?: string;
         };
@@ -56,6 +62,9 @@ export interface Database {
           name?: string;
           owner_id?: string;
           invite_code?: string;
+          week_start_day?: number;
+          dinner_time?: string;
+          default_duration_days?: number;
           updated_at?: string;
         };
       };
@@ -193,6 +202,9 @@ export interface Database {
           unit: IngredientUnit;
           storage_location: StorageLocation;
           sort_order: number;
+          pack_qty: number | null;
+          pack_price: number | null;
+          unit_cost: number | null;
         };
         Insert: {
           id?: string;
@@ -202,6 +214,8 @@ export interface Database {
           unit?: IngredientUnit;
           storage_location?: StorageLocation;
           sort_order?: number;
+          pack_qty?: number | null;
+          pack_price?: number | null;
         };
         Update: {
           name?: string;
@@ -209,6 +223,8 @@ export interface Database {
           unit?: IngredientUnit;
           storage_location?: StorageLocation;
           sort_order?: number;
+          pack_qty?: number | null;
+          pack_price?: number | null;
         };
       };
       recipe_steps: {
@@ -355,6 +371,101 @@ export interface Database {
           chef_id?: string | null;
           servings_override?: number | null;
         };
+      };
+      ingredient_library: {
+        Row: {
+          id: string;
+          name: string;
+          default_unit: string | null;
+          storage_category: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          default_unit?: string | null;
+          storage_category?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          name?: string;
+          default_unit?: string | null;
+          storage_category?: string | null;
+        };
+      };
+      household_storage_categories: {
+        Row: {
+          id: string;
+          household_id: string;
+          name: string;
+          sort_order: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          household_id: string;
+          name: string;
+          sort_order?: number;
+          created_at?: string;
+        };
+        Update: {
+          name?: string;
+          sort_order?: number;
+        };
+      };
+      household_packs: {
+        Row: {
+          id: string;
+          household_id: string;
+          name: string;
+          description: string | null;
+          created_by: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          household_id: string;
+          name: string;
+          description?: string | null;
+          created_by?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          name?: string;
+          description?: string | null;
+        };
+      };
+      household_pack_items: {
+        Row: {
+          id: string;
+          pack_id: string;
+          recipe_id: string;
+          sort_order: number;
+        };
+        Insert: {
+          id?: string;
+          pack_id: string;
+          recipe_id: string;
+          sort_order?: number;
+        };
+        Update: {
+          sort_order?: number;
+        };
+      };
+      meal_plan_packs: {
+        Row: {
+          id: string;
+          plan_id: string;
+          pack_id: string;
+          added_at: string;
+        };
+        Insert: {
+          id?: string;
+          plan_id: string;
+          pack_id: string;
+          added_at?: string;
+        };
+        Update: Record<string, never>;
       };
       grocery_lists: {
         Row: {

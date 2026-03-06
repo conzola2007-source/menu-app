@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { Plus, Search } from 'lucide-react';
 import { useIngredients, useCreateIngredient } from '@/hooks/useIngredients';
+import { useIngredientLibrary } from '@/hooks/useIngredientLibrary';
 import type { IngredientUnit } from '@/lib/supabase/types';
 import { INGREDIENT_UNITS } from '@/lib/recipe-constants';
 
@@ -27,16 +28,29 @@ export function IngredientSearch({
   const containerRef = useRef<HTMLDivElement>(null);
 
   const { data: ingredients = [] } = useIngredients(householdId);
+  const { data: library = [] } = useIngredientLibrary();
   const createIngredient = useCreateIngredient(householdId ?? '');
 
-  // Filter ingredients by current input
   const query = value.trim().toLowerCase();
-  const filtered = query.length >= 1
-    ? ingredients.filter((i) => i.name.toLowerCase().includes(query))
-    : [];
-  const exactMatch = ingredients.some((i) => i.name.toLowerCase() === query);
 
-  // Close dropdown on outside click
+  // Merge household + global library; household results first
+  const filtered = useMemo(() => {
+    if (query.length < 1) return [];
+    const householdMatches = ingredients
+      .filter((i) => i.name.toLowerCase().includes(query))
+      .map((i) => ({ id: i.id, name: i.name, default_unit: i.default_unit as string | null, price: i.price, fromLibrary: false }));
+    const householdNameSet = new Set(ingredients.map((i) => i.name.toLowerCase()));
+    const libraryMatches = library
+      .filter((i) => i.name.toLowerCase().includes(query) && !householdNameSet.has(i.name.toLowerCase()))
+      .map((i) => ({ id: i.id, name: i.name, default_unit: i.default_unit, price: null as number | null, fromLibrary: true }));
+    return [...householdMatches, ...libraryMatches];
+  }, [query, ingredients, library]);
+
+  const exactMatch =
+    ingredients.some((i) => i.name.toLowerCase() === query) ||
+    library.some((i) => i.name.toLowerCase() === query);
+
+  // Close on outside click
   useEffect(() => {
     function onOutsideClick(e: MouseEvent) {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
@@ -60,7 +74,7 @@ export function IngredientSearch({
       onChange(ing.name, ing.default_unit);
       setOpen(false);
     } catch {
-      // ignore — ingredient might already exist with that name
+      // ignore — ingredient might already exist
     }
   }
 
@@ -94,17 +108,18 @@ export function IngredientSearch({
                 <li key={ing.id}>
                   <button
                     type="button"
-                    onMouseDown={(e) => e.preventDefault()} // prevent blur before click
+                    onMouseDown={(e) => e.preventDefault()}
                     onClick={() => {
-                      onChange(ing.name, ing.default_unit);
+                      onChange(ing.name, (ing.default_unit ?? 'qty') as IngredientUnit);
                       setOpen(false);
                     }}
                     className="flex w-full items-center justify-between px-3 py-2 text-left text-sm hover:bg-slate-700"
                   >
                     <span className="text-white">{ing.name}</span>
                     <span className="text-xs text-slate-500">
-                      {ing.default_unit}
-                      {ing.price != null ? ` · $${ing.price.toFixed(2)}` : ''}
+                      {ing.default_unit ?? 'qty'}
+                      {ing.fromLibrary && <span className="ml-1 text-slate-600">📚</span>}
+                      {!ing.fromLibrary && ing.price != null ? ` · $${ing.price.toFixed(2)}` : ''}
                     </span>
                   </button>
                 </li>
@@ -112,7 +127,7 @@ export function IngredientSearch({
             </ul>
           )}
 
-          {/* Create new option (only if not exact match) */}
+          {/* Create new option */}
           {!exactMatch && (
             <div className="border-t border-slate-700">
               {!creating ? (
@@ -127,9 +142,7 @@ export function IngredientSearch({
                 </button>
               ) : (
                 <div className="flex flex-col gap-2 p-3">
-                  <p className="text-xs font-medium text-slate-400">
-                    Save to library (optional details)
-                  </p>
+                  <p className="text-xs font-medium text-slate-400">Save to library (optional details)</p>
                   <div className="flex gap-2">
                     <select
                       value={newUnit}
@@ -167,7 +180,7 @@ export function IngredientSearch({
                       onMouseDown={(e) => e.preventDefault()}
                       onClick={() => {
                         setCreating(false);
-                        onChange(value); // just use typed name without saving
+                        onChange(value);
                         setOpen(false);
                       }}
                       className="rounded-lg border border-slate-600 px-3 py-1.5 text-xs text-slate-400"
@@ -178,10 +191,6 @@ export function IngredientSearch({
                 </div>
               )}
             </div>
-          )}
-
-          {filtered.length === 0 && !value.trim() && (
-            <p className="px-3 py-2 text-xs text-slate-500">Type to search ingredients…</p>
           )}
         </div>
       )}

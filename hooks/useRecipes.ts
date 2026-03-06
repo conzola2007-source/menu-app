@@ -183,6 +183,8 @@ export interface RecipeWritePayload {
     unit: IngredientUnit;
     storage_location: StorageLocation;
     sort_order: number;
+    pack_qty?: number | null;
+    pack_price?: number | null;
   }>;
   steps: Array<{ instruction: string; step_order: number }>;
 }
@@ -237,6 +239,8 @@ export function useCreateRecipe() {
                   unit: ing.unit,
                   storage_location: ing.storage_location,
                   sort_order: ing.sort_order,
+                  pack_qty: ing.pack_qty ?? null,
+                  pack_price: ing.pack_price ?? null,
                 } as never))
               )
               .then(({ error }) => error)
@@ -328,6 +332,8 @@ export function useUpdateRecipe(recipeId: string) {
                   unit: ing.unit,
                   storage_location: ing.storage_location,
                   sort_order: ing.sort_order,
+                  pack_qty: ing.pack_qty ?? null,
+                  pack_price: ing.pack_price ?? null,
                 } as never))
               )
               .then(({ error }) => error)

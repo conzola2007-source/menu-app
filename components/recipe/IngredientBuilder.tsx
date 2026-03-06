@@ -53,16 +53,22 @@ function IngredientRow({ field, index, control, errors, householdId, onRemove, c
 
   const rowErrors = errors.ingredients?.[index];
 
-  // Controlled name field so we can wire up IngredientSearch
+  // Controlled fields
   const { field: nameField } = useController({ control, name: `ingredients.${index}.name` });
   const { field: unitField } = useController({ control, name: `ingredients.${index}.unit` });
   const { field: amountField } = useController({ control, name: `ingredients.${index}.amount` });
   const { field: storageField } = useController({ control, name: `ingredients.${index}.storage_location` });
+  const { field: packQtyField } = useController({ control, name: `ingredients.${index}.pack_qty` });
+  const { field: packPriceField } = useController({ control, name: `ingredients.${index}.pack_price` });
 
   function handleIngredientSelect(name: string, unit?: IngredientUnit) {
     nameField.onChange(name);
     if (unit) unitField.onChange(unit);
   }
+
+  const packQty = Number(packQtyField.value) || 0;
+  const packPrice = Number(packPriceField.value) || 0;
+  const unitCost = packQty > 0 && packPrice > 0 ? packPrice / packQty : null;
 
   return (
     <div ref={setNodeRef} style={style} className="flex items-start gap-2">
@@ -78,62 +84,91 @@ function IngredientRow({ field, index, control, errors, householdId, onRemove, c
       </button>
 
       {/* Fields grid */}
-      <div className="grid flex-1 grid-cols-6 gap-2">
-        {/* Name — spans 6 cols on mobile, 3 on sm */}
-        <div className="col-span-6 sm:col-span-3">
-          <IngredientSearch
-            householdId={householdId}
-            value={nameField.value as string}
-            onChange={handleIngredientSelect}
-          />
-          {rowErrors?.name && (
-            <p className="mt-0.5 text-xs text-red-400">{rowErrors.name.message}</p>
-          )}
+      <div className="flex-1 flex flex-col gap-1.5">
+        <div className="grid grid-cols-6 gap-2">
+          {/* Name — 6 cols mobile, 3 sm */}
+          <div className="col-span-6 sm:col-span-3">
+            <IngredientSearch
+              householdId={householdId}
+              value={nameField.value as string}
+              onChange={handleIngredientSelect}
+            />
+            {rowErrors?.name && (
+              <p className="mt-0.5 text-xs text-red-400">{rowErrors.name.message}</p>
+            )}
+          </div>
+
+          {/* Amount — 2 of 6 */}
+          <div className="col-span-2">
+            <input
+              type="number"
+              step="0.1"
+              min="0"
+              placeholder="Qty"
+              value={amountField.value as number}
+              onChange={(e) => amountField.onChange(parseFloat(e.target.value))}
+              className="w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-1.5 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-primary"
+            />
+            {rowErrors?.amount && (
+              <p className="mt-0.5 text-xs text-red-400">{rowErrors.amount.message}</p>
+            )}
+          </div>
+
+          {/* Unit — 2 of 6 */}
+          <div className="col-span-2 sm:col-span-1">
+            <select
+              value={unitField.value as string}
+              onChange={(e) => unitField.onChange(e.target.value)}
+              className="w-full rounded-lg border border-slate-600 bg-slate-900 px-2 py-1.5 text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary"
+            >
+              {INGREDIENT_UNITS.map((u) => (
+                <option key={u} value={u}>{u}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Storage — 3 cols */}
+          <div className="col-span-3 sm:col-span-2">
+            <select
+              value={storageField.value as string}
+              onChange={(e) => storageField.onChange(e.target.value)}
+              className="w-full rounded-lg border border-slate-600 bg-slate-900 px-2 py-1.5 text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary"
+            >
+              <option value="pantry">Pantry</option>
+              <option value="fridge">Fridge</option>
+              <option value="freezer">Freezer</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
         </div>
 
-        {/* Amount — 2 of 6 */}
-        <div className="col-span-2">
+        {/* Bulk pricing (optional) */}
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] text-slate-600">Pack:</span>
           <input
             type="number"
-            step="0.1"
+            step="1"
             min="0"
-            placeholder="Qty"
-            value={amountField.value as number}
-            onChange={(e) => amountField.onChange(parseFloat(e.target.value))}
-            className="w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-1.5 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-primary"
+            placeholder="qty"
+            value={(packQtyField.value as number | null) ?? ''}
+            onChange={(e) => packQtyField.onChange(e.target.value === '' ? null : parseFloat(e.target.value))}
+            className="w-14 rounded border border-slate-700 bg-slate-900 px-1.5 py-0.5 text-xs text-white placeholder:text-slate-600 focus:outline-none"
           />
-          {rowErrors?.amount && (
-            <p className="mt-0.5 text-xs text-red-400">{rowErrors.amount.message}</p>
+          <span className="text-[10px] text-slate-600">×</span>
+          <input
+            type="number"
+            step="0.01"
+            min="0"
+            placeholder="£price"
+            value={(packPriceField.value as number | null) ?? ''}
+            onChange={(e) => packPriceField.onChange(e.target.value === '' ? null : parseFloat(e.target.value))}
+            className="w-16 rounded border border-slate-700 bg-slate-900 px-1.5 py-0.5 text-xs text-white placeholder:text-slate-600 focus:outline-none"
+          />
+          {unitCost !== null && (
+            <span className="text-[10px] text-slate-500">
+              = £{unitCost.toFixed(4)}/unit
+            </span>
           )}
-        </div>
-
-        {/* Unit — 2 of 6 */}
-        <div className="col-span-2">
-          <select
-            value={unitField.value as string}
-            onChange={(e) => unitField.onChange(e.target.value)}
-            className="w-full rounded-lg border border-slate-600 bg-slate-900 px-2 py-1.5 text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary"
-          >
-            {INGREDIENT_UNITS.map((u) => (
-              <option key={u} value={u}>
-                {u}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Storage — full row on mobile, 3 of 6 on sm */}
-        <div className="col-span-3 sm:col-span-3">
-          <select
-            value={storageField.value as string}
-            onChange={(e) => storageField.onChange(e.target.value)}
-            className="w-full rounded-lg border border-slate-600 bg-slate-900 px-2 py-1.5 text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary"
-          >
-            <option value="pantry">Pantry</option>
-            <option value="fridge">Fridge</option>
-            <option value="freezer">Freezer</option>
-            <option value="other">Other</option>
-          </select>
         </div>
       </div>
 

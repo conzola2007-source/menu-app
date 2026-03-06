@@ -41,4 +41,20 @@ export const queryKeys = {
   recipeCooks: {
     list: (recipeId: string, householdId: string) => ['recipeCooks', recipeId, householdId] as const,
   },
+  ingredientLibrary: {
+    list: () => ['ingredientLibrary'] as const,
+  },
+  householdSettings: {
+    get: (householdId: string) => ['householdSettings', householdId] as const,
+  },
+  storageCategories: {
+    list: (householdId: string) => ['storageCategories', householdId] as const,
+  },
+  packs: {
+    list: (householdId: string) => ['packs', householdId] as const,
+    detail: (packId: string) => ['packs', 'detail', packId] as const,
+  },
+  planPacks: {
+    list: (planId: string) => ['planPacks', planId] as const,
+  },
 } as const;
