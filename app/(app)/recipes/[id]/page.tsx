@@ -3,13 +3,14 @@
 import { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Pencil, Clock, ChefHat, Users, AlertTriangle, UtensilsCrossed, Heart } from 'lucide-react';
+import { ArrowLeft, Pencil, Clock, ChefHat, Users, AlertTriangle, UtensilsCrossed, Heart, StickyNote, Trash2 } from 'lucide-react';
 import { useRecipeDetail } from '@/hooks/useRecipes';
 import { useHousehold } from '@/hooks/useHousehold';
 import { useAuthStore } from '@/stores/authStore';
 import { useRecipeCooks, useAddSelfAsCook, useRemoveSelfAsCook } from '@/hooks/useRecipeCooks';
 import { useRecipeRatings, useUpsertRating } from '@/hooks/useRecipeRatings';
 import { useRecipeFavourites, useToggleFavourite } from '@/hooks/useRecipeFavourites';
+import { useRecipeNotes, useUpsertRecipeNote, useDeleteRecipeNote } from '@/hooks/useRecipeNotes';
 import { RatingStars } from '@/components/recipe/RatingStars';
 import { formatQuantity } from '@/lib/utils';
 import { CUISINE_LABELS, STORAGE_LABELS } from '@/lib/recipe-constants';
@@ -31,8 +32,13 @@ export default function RecipeDetailPage() {
   const { data: favourites = [] } = useRecipeFavourites(householdId ?? null);
   const toggleFavourite = useToggleFavourite();
 
+  const { data: notes = [] } = useRecipeNotes(id ?? null, householdId ?? null);
+  const upsertNote = useUpsertRecipeNote();
+  const deleteNote = useDeleteRecipeNote();
+
   // Servings scaler
   const [scaledServings, setScaledServings] = useState<number | null>(null);
+  const [noteText, setNoteText] = useState<string | null>(null);
 
   if (isLoading) {
     return (
@@ -78,6 +84,7 @@ export default function RecipeDetailPage() {
 
   const isCook = cooks.some((c) => c.user_id === user?.id);
   const members = membership?.members ?? [];
+  const myNote = notes.find((n) => n.user_id === user?.id);
   const isFav = favourites.some((f) => f.recipe_id === id);
   const myRating = ratings.find((r) => r.user_id === user?.id);
   const avgStars =
@@ -372,6 +379,81 @@ export default function RecipeDetailPage() {
                       </div>
                     );
                   })}
+              </div>
+            )}
+          </section>
+        )}
+
+        {/* Notes */}
+        {householdId && user && (
+          <section className="mt-6">
+            <h2 className="mb-3 flex items-center gap-2 text-base font-semibold text-white">
+              <StickyNote className="h-4 w-4 text-slate-400" />
+              Notes
+            </h2>
+
+            {/* My note editor */}
+            <div className="rounded-xl border border-slate-700 bg-slate-800 px-4 py-3">
+              <p className="mb-2 text-xs font-medium text-slate-400">Your note</p>
+              <textarea
+                value={noteText ?? (myNote?.content ?? '')}
+                onChange={(e) => setNoteText(e.target.value)}
+                placeholder="Add a personal note about this recipe…"
+                maxLength={500}
+                rows={3}
+                className="w-full resize-none bg-transparent text-sm text-white placeholder-slate-600 focus:outline-none"
+              />
+              <div className="flex items-center justify-between pt-1">
+                <span className="text-xs text-slate-700">
+                  {(noteText ?? myNote?.content ?? '').length}/500
+                </span>
+                <div className="flex items-center gap-2">
+                  {myNote && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        deleteNote.mutate({ noteId: myNote.id, recipeId: id!, householdId });
+                        setNoteText('');
+                      }}
+                      className="flex items-center gap-1 text-xs text-slate-600 hover:text-red-400"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                      Delete
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const content = (noteText ?? '').trim();
+                      if (!content || !id) return;
+                      upsertNote.mutate({ recipeId: id, householdId, content });
+                      setNoteText(null);
+                    }}
+                    disabled={upsertNote.isPending || !(noteText ?? '').trim()}
+                    className="rounded-full bg-primary/20 px-3 py-1 text-xs font-medium text-primary hover:bg-primary/30 disabled:opacity-40"
+                  >
+                    {upsertNote.isPending ? 'Saving…' : 'Save'}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Other members' notes */}
+            {notes.filter((n) => n.user_id !== user?.id).length > 0 && (
+              <div className="mt-2 flex flex-col divide-y divide-slate-800 rounded-xl border border-slate-800">
+                {notes
+                  .filter((n) => n.user_id !== user?.id)
+                  .map((n) => (
+                    <div key={n.id} className="px-4 py-3">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-slate-700 text-[10px] font-bold text-white">
+                          {n.display_name.charAt(0).toUpperCase()}
+                        </span>
+                        <span className="text-xs font-medium text-slate-400">{n.display_name}</span>
+                      </div>
+                      <p className="text-sm leading-relaxed text-slate-300">{n.content}</p>
+                    </div>
+                  ))}
               </div>
             )}
           </section>

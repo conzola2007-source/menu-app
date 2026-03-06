@@ -72,4 +72,10 @@ export const queryKeys = {
   analytics: {
     get: (householdId: string) => ['analytics', householdId] as const,
   },
+  recipeNotes: {
+    list: (recipeId: string, householdId: string) => ['recipeNotes', recipeId, householdId] as const,
+  },
+  templates: {
+    list: (householdId: string) => ['templates', householdId] as const,
+  },
 } as const;

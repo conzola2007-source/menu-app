@@ -30,6 +30,9 @@ const TABS = [
 export function BottomNav() {
   const pathname = usePathname();
 
+  // Hide nav in full-screen shopping mode
+  if (pathname === '/grocery/shopping') return null;
+
   function isActive(prefixes: readonly string[]) {
     return prefixes.some(
       (p) => pathname === p || pathname.startsWith(p + '/')

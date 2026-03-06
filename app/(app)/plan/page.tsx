@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { X, ChevronLeft, CalendarDays, ShoppingCart, Package, Plus, Check } from 'lucide-react';
+import { X, ChevronLeft, CalendarDays, ShoppingCart, Package, Plus, Check, BookTemplate, LayoutTemplate } from 'lucide-react';
 import { Sheet } from '@/components/ui/Sheet';
 import { useMealPlan, useAddSlot, useRemoveSlot, useFinalizeWeek, useUpdatePlanDuration } from '@/hooks/useMealPlan';
 import { useHouseholdPool } from '@/hooks/useRecipes';
@@ -14,7 +14,10 @@ import { usePacks, usePlanPacks, useAttachPack, useDetachPack } from '@/hooks/us
 import { isHead } from '@/lib/roles';
 import { DayCountPicker } from '@/components/plan/DayCountPicker';
 import { CalendarGrid } from '@/components/plan/CalendarGrid';
+import { SaveTemplateSheet } from '@/components/plan/SaveTemplateSheet';
+import { ApplyTemplateSheet } from '@/components/plan/ApplyTemplateSheet';
 import type { SlotRecipe } from '@/hooks/useMealPlan';
+import type { Template } from '@/hooks/useTemplates';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -54,6 +57,8 @@ export default function PlanPage() {
   const [durationConfirmed, setDurationConfirmed] = useState(false);
   const [showDayPicker, setShowDayPicker] = useState(false);
   const [showPackPicker, setShowPackPicker] = useState(false);
+  const [showSaveTemplate, setShowSaveTemplate] = useState(false);
+  const [showApplyTemplate, setShowApplyTemplate] = useState(false);
   // Pending duration while picker sheet is open
   const [pendingDuration, setPendingDuration] = useState(7);
 
@@ -122,6 +127,27 @@ export default function PlanPage() {
       { durationDays: pendingDuration },
       { onError: () => setToast('Failed to save duration.') },
     );
+  }
+
+  function handleApplyTemplate(template: Template, overwrite: boolean) {
+    const baseDate = new Date(startDate);
+    if (overwrite && planData?.slots) {
+      // Remove all existing slots first
+      for (const slot of planData.slots) {
+        removeSlot.mutate(slot.id);
+      }
+    }
+    // Add template slots
+    for (const slot of template.slots) {
+      const slotDate = new Date(baseDate);
+      slotDate.setDate(baseDate.getDate() + slot.day_offset);
+      const dateStr = toLocalISODate(slotDate);
+      const recipe = shortlist.find((r) => r.id === slot.recipe_id);
+      if (recipe) {
+        addSlot.mutate({ recipeId: recipe.id, slotDate: dateStr, recipe });
+      }
+    }
+    setToast(`Applied "${template.name}" template`);
   }
 
   async function handleFinalize() {
@@ -235,18 +261,44 @@ export default function PlanPage() {
             <h1 className="text-base font-bold text-white">Meal Plan</h1>
           </div>
 
-          {/* Day count button — always visible, opens picker sheet */}
-          <button
-            type="button"
-            onClick={() => {
-              setPendingDuration(durationDays);
-              setShowDayPicker(true);
-            }}
-            className="flex items-center gap-1.5 rounded-full border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs font-medium text-slate-300 hover:border-slate-500 hover:text-white"
-          >
-            <CalendarDays className="h-3.5 w-3.5" />
-            {durationDays}d
-          </button>
+          <div className="flex items-center gap-1.5">
+            {/* Apply template */}
+            {currentUserIsHead && (
+              <button
+                type="button"
+                onClick={() => setShowApplyTemplate(true)}
+                className="flex items-center gap-1 rounded-full border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs font-medium text-slate-300 hover:border-slate-500 hover:text-white"
+                title="Apply template"
+              >
+                <LayoutTemplate className="h-3.5 w-3.5" />
+              </button>
+            )}
+
+            {/* Save as template */}
+            {currentUserIsHead && hasSlots && (
+              <button
+                type="button"
+                onClick={() => setShowSaveTemplate(true)}
+                className="flex items-center gap-1 rounded-full border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs font-medium text-slate-300 hover:border-slate-500 hover:text-white"
+                title="Save as template"
+              >
+                <BookTemplate className="h-3.5 w-3.5" />
+              </button>
+            )}
+
+            {/* Day count button — always visible, opens picker sheet */}
+            <button
+              type="button"
+              onClick={() => {
+                setPendingDuration(durationDays);
+                setShowDayPicker(true);
+              }}
+              className="flex items-center gap-1.5 rounded-full border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs font-medium text-slate-300 hover:border-slate-500 hover:text-white"
+            >
+              <CalendarDays className="h-3.5 w-3.5" />
+              {durationDays}d
+            </button>
+          </div>
         </div>
       </div>
 
@@ -389,6 +441,36 @@ export default function PlanPage() {
           )}
         </div>
       </Sheet>
+
+      {/* Save template sheet */}
+      {householdId && (
+        <SaveTemplateSheet
+          isOpen={showSaveTemplate}
+          onClose={() => setShowSaveTemplate(false)}
+          householdId={householdId}
+          durationDays={durationDays}
+          slots={(planData?.slots ?? []).map((s, i) => {
+            const slotDate = new Date(s.slot_date + 'T00:00:00');
+            const baseDate = new Date(startDate + 'T00:00:00');
+            const dayOffset = Math.round((slotDate.getTime() - baseDate.getTime()) / 86400000);
+            return { recipeId: s.recipe.id, dayOffset: Math.max(0, dayOffset), sortOrder: i };
+          })}
+          onSaved={() => setToast('Template saved!')}
+        />
+      )}
+
+      {/* Apply template sheet */}
+      {householdId && membership && (
+        <ApplyTemplateSheet
+          isOpen={showApplyTemplate}
+          onClose={() => setShowApplyTemplate(false)}
+          householdId={householdId}
+          role={membership.role}
+          startDate={startDate}
+          hasExistingSlots={hasSlots}
+          onApply={handleApplyTemplate}
+        />
+      )}
     </div>
   );
 }

@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Plus, ClipboardCheck, ChevronRight, Scissors, Users } from 'lucide-react';
+import { Plus, ClipboardCheck, ChevronRight, Scissors, Users, ShoppingCart } from 'lucide-react';
 import {
   useGroceryList,
   useToggleGroceryItem,
@@ -285,6 +285,17 @@ export default function GroceryPage() {
         items={items}
         members={members}
       />
+
+      {/* ── Start shopping button ─────────────────────────────────────────── */}
+      {totalCount > 0 && (
+        <Link
+          href="/grocery/shopping"
+          className="fixed bottom-24 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 rounded-full bg-green-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-green-900/40 hover:bg-green-500 active:scale-95 transition-transform"
+        >
+          <ShoppingCart className="h-4 w-4" />
+          Start shopping
+        </Link>
+      )}
 
       {/* ── FAB ─────────────────────────────────────────────────────────────── */}
       <button

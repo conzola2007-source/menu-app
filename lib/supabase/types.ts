@@ -586,6 +586,78 @@ export interface Database {
         };
         Update: Record<string, never>;
       };
+      recipe_notes: {
+        Row: {
+          id: string;
+          recipe_id: string;
+          household_id: string;
+          user_id: string;
+          content: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          recipe_id: string;
+          household_id: string;
+          user_id: string;
+          content: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          content?: string;
+          updated_at?: string;
+        };
+      };
+      meal_plan_templates: {
+        Row: {
+          id: string;
+          household_id: string;
+          name: string;
+          description: string | null;
+          duration_days: number;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          household_id: string;
+          name: string;
+          description?: string | null;
+          duration_days: number;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          name?: string;
+          description?: string | null;
+          duration_days?: number;
+          updated_at?: string;
+        };
+      };
+      meal_plan_template_slots: {
+        Row: {
+          id: string;
+          template_id: string;
+          recipe_id: string;
+          day_offset: number;
+          sort_order: number;
+        };
+        Insert: {
+          id?: string;
+          template_id: string;
+          recipe_id: string;
+          day_offset: number;
+          sort_order?: number;
+        };
+        Update: {
+          day_offset?: number;
+          sort_order?: number;
+        };
+      };
     };
     Functions: {
       approve_recipe_add_request: {
