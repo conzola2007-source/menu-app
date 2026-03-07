@@ -19,6 +19,8 @@ export interface Database {
           id: string;
           display_name: string;
           avatar_url: string | null;
+          dietary_preference: string;
+          onboarding_completed: boolean;
           created_at: string;
           updated_at: string;
         };
@@ -26,13 +28,35 @@ export interface Database {
           id: string;
           display_name: string;
           avatar_url?: string | null;
+          dietary_preference?: string;
+          onboarding_completed?: boolean;
           created_at?: string;
           updated_at?: string;
         };
         Update: {
           display_name?: string;
           avatar_url?: string | null;
+          dietary_preference?: string;
+          onboarding_completed?: boolean;
           updated_at?: string;
+        };
+      };
+      user_saved_global_recipes: {
+        Row: {
+          id: string;
+          user_id: string;
+          recipe_id: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          recipe_id: string;
+          created_at?: string;
+        };
+        Update: {
+          user_id?: string;
+          recipe_id?: string;
         };
       };
       households: {
@@ -149,6 +173,7 @@ export interface Database {
           cuisine: CuisineType;
           carb_type: CarbType;
           protein_type: ProteinType;
+          dietary_tags: string[];
           prep_time_min: number;
           cook_time_min: number;
           servings: number;
@@ -181,6 +206,7 @@ export interface Database {
           is_global?: boolean;
           household_id?: string | null;
           created_by?: string | null;
+          dietary_tags?: string[];
         };
         Update: {
           title?: string;
@@ -196,6 +222,7 @@ export interface Database {
           bg_color?: string;
           advance_prep_days?: number;
           advance_prep_note?: string | null;
+          dietary_tags?: string[];
           updated_at?: string;
         };
       };

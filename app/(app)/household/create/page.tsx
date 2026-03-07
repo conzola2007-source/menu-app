@@ -85,6 +85,22 @@ export default function CreateHouseholdPage() {
       return;
     }
 
+    // Auto-add any recipes the user saved during onboarding into the household pool
+    const { data: savedRecipes } = await supabase
+      .from('user_saved_global_recipes')
+      .select('recipe_id')
+      .eq('user_id', user.id);
+    if (savedRecipes && savedRecipes.length > 0) {
+      const poolEntries = savedRecipes.map((r: { recipe_id: string }) => ({
+        household_id: household.id,
+        recipe_id: r.recipe_id,
+        added_by: user.id,
+      }));
+      await supabase
+        .from('household_recipes')
+        .insert(poolEntries as never);
+    }
+
     setActiveHousehold(household.id);
     await queryClient.invalidateQueries({ queryKey: queryKeys.household.current(household.id) });
     await queryClient.invalidateQueries({ queryKey: queryKeys.household.all() });

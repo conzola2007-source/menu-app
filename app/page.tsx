@@ -15,6 +15,17 @@ export default async function RootPage() {
     redirect('/sign-in');
   }
 
+  // Check if onboarding is complete
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('onboarding_completed')
+    .eq('id', session.user.id)
+    .maybeSingle();
+
+  if (!profile?.onboarding_completed) {
+    redirect('/onboarding');
+  }
+
   const { data: membership } = await supabase
     .from('household_members')
     .select('household_id')

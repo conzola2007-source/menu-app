@@ -16,6 +16,7 @@ export interface Recipe {
   cuisine: CuisineType;
   carb_type: CarbType;
   protein_type: ProteinType;
+  dietary_tags: string[];
   prep_time_min: number;
   cook_time_min: number;
   servings: number;
@@ -56,7 +57,8 @@ export interface RecipeDetail extends Recipe {
 // ─── List hook (personal library) ─────────────────────────────────────────────
 
 /**
- * Personal recipe library: global recipes + recipes I created.
+ * Personal recipe library: recipes the user created + global recipes they
+ * explicitly saved during onboarding (user_saved_global_recipes).
  * Used on the /recipes page. Does NOT represent the household pool.
  */
 export function useRecipes() {
@@ -66,19 +68,39 @@ export function useRecipes() {
     queryKey: queryKeys.recipes.all(user?.id ?? 'anon'),
     queryFn: async (): Promise<Recipe[]> => {
       const supabase = getSupabaseClient();
+      const selectFields =
+        'id, title, description, cuisine, carb_type, protein_type, dietary_tags, prep_time_min, cook_time_min, servings, estimated_price, emoji, bg_color, advance_prep_days, advance_prep_note, is_global, household_id, created_by, created_at, updated_at';
 
-      const q = supabase
+      if (!user) {
+        // Guest: show all global recipes
+        const { data, error } = await supabase
+          .from('recipes')
+          .select(selectFields)
+          .eq('is_global', true)
+          .order('created_at', { ascending: true });
+        if (error) throw error;
+        return (data ?? []) as unknown as Recipe[];
+      }
+
+      // Authenticated: show user-created + explicitly saved global recipes
+      const { data: saved } = await supabase
+        .from('user_saved_global_recipes')
+        .select('recipe_id')
+        .eq('user_id', user.id);
+      const savedIds = (saved ?? []).map(
+        (r: { recipe_id: string }) => r.recipe_id,
+      );
+
+      const filter =
+        savedIds.length > 0
+          ? `created_by.eq.${user.id},id.in.(${savedIds.join(',')})`
+          : `created_by.eq.${user.id}`;
+
+      const { data, error } = await supabase
         .from('recipes')
-        .select(
-          'id, title, description, cuisine, carb_type, protein_type, prep_time_min, cook_time_min, servings, estimated_price, emoji, bg_color, advance_prep_days, advance_prep_note, is_global, household_id, created_by, created_at, updated_at'
-        )
+        .select(selectFields)
+        .or(filter)
         .order('created_at', { ascending: true });
-
-      const filter = user
-        ? `is_global.eq.true,created_by.eq.${user.id}`
-        : 'is_global.eq.true';
-
-      const { data, error } = await q.or(filter);
       if (error) throw error;
       return (data ?? []) as unknown as Recipe[];
     },
@@ -99,28 +121,28 @@ export function useHouseholdPool(householdId: string | null) {
     queryFn: async (): Promise<Recipe[]> => {
       const supabase = getSupabaseClient();
 
-      // 1. Get recipe IDs in the household pool
+      // Get recipe IDs explicitly added to this household pool
       const { data: poolRows, error: poolErr } = await supabase
         .from('household_recipes')
         .select('recipe_id')
         .eq('household_id', householdId!);
       if (poolErr) throw poolErr;
 
-      const poolIds = (poolRows ?? []).map((r) => (r as unknown as { recipe_id: string }).recipe_id);
+      const poolIds = (poolRows ?? []).map(
+        (r) => (r as unknown as { recipe_id: string }).recipe_id,
+      );
 
-      // 2. Fetch: global + pool
-      const q = supabase
+      // Empty pool → no recipes
+      if (poolIds.length === 0) return [];
+
+      // Fetch only the explicitly pooled recipes
+      const { data, error } = await supabase
         .from('recipes')
         .select(
-          'id, title, description, cuisine, carb_type, protein_type, prep_time_min, cook_time_min, servings, estimated_price, emoji, bg_color, advance_prep_days, advance_prep_note, is_global, household_id, created_by, created_at, updated_at'
+          'id, title, description, cuisine, carb_type, protein_type, dietary_tags, prep_time_min, cook_time_min, servings, estimated_price, emoji, bg_color, advance_prep_days, advance_prep_note, is_global, household_id, created_by, created_at, updated_at',
         )
+        .in('id', poolIds)
         .order('created_at', { ascending: true });
-
-      const filter = poolIds.length > 0
-        ? `is_global.eq.true,id.in.(${poolIds.join(',')})`
-        : 'is_global.eq.true';
-
-      const { data, error } = await q.or(filter);
       if (error) throw error;
       return (data ?? []) as unknown as Recipe[];
     },
