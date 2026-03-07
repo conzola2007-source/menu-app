@@ -1,12 +1,13 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { useAuthStore } from '@/stores/authStore';
 import { useHousehold } from '@/hooks/useHousehold';
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter();
+  const pathname = usePathname();
   const { user, isGuest, isLoading } = useAuthStore();
   const { data: membership, isLoading: householdLoading } = useHousehold();
 
@@ -18,10 +19,11 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    if (!isGuest && !householdLoading && !membership) {
+    // Don't redirect during onboarding — new users have no household yet
+    if (!isGuest && !householdLoading && !membership && pathname !== '/onboarding') {
       router.replace('/household/create');
     }
-  }, [user, isGuest, isLoading, membership, householdLoading, router]);
+  }, [user, isGuest, isLoading, membership, householdLoading, router, pathname]);
 
   // Show nothing while loading auth state
   if (isLoading || (!isGuest && householdLoading)) {
