@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Pencil, Check, X, LogOut, ChefHat, Plus, KeyRound, Mail, Bell, RotateCcw } from 'lucide-react';
+import { Pencil, Check, X, LogOut, ChefHat, Plus, KeyRound, Mail, Bell } from 'lucide-react';
 import { useHousehold } from '@/hooks/useHousehold';
 import { useAuthStore } from '@/stores/authStore';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
@@ -353,7 +353,7 @@ export default function AccountPage() {
   const [passwordLoading, setPasswordLoading] = useState(false);
   const [passwordMsg, setPasswordMsg] = useState<string | null>(null);
 
-  const [confirmAction, setConfirmAction] = useState<null | 'restart' | 'delete'>(null);
+  const [confirmAction, setConfirmAction] = useState<null | 'delete'>(null);
   const [dangerLoading, setDangerLoading] = useState(false);
   const [dangerError, setDangerError] = useState<string | null>(null);
 
@@ -614,38 +614,22 @@ export default function AccountPage() {
           {user && <MyRecipes userId={user.id} />}
         </section>
 
-        {/* Sign out */}
-        <button
-          type="button"
-          onClick={() => void handleSignOut()}
-          className="flex items-center justify-center gap-2 rounded-2xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm text-slate-400 hover:border-slate-600 hover:text-white"
-        >
-          <LogOut className="h-4 w-4" />
-          Sign out
-        </button>
-
-        {/* Danger zone */}
-        {confirmAction ? (
+        {/* Sign out + Delete account */}
+        {confirmAction === 'delete' ? (
           <section className="rounded-2xl border border-red-500/30 bg-red-500/5 p-4">
-            <p className="mb-2 text-sm font-semibold text-red-400">
-              {confirmAction === 'restart' ? 'Restart account?' : 'Delete account?'}
-            </p>
+            <p className="mb-2 text-sm font-semibold text-red-400">Delete account?</p>
             <p className="mb-3 text-xs text-slate-400">
-              {confirmAction === 'restart'
-                ? 'Removes you from all households and deletes your recipes. Your email and password are kept.'
-                : 'Permanently deletes your account. Your email, password, recipes, and all data will be gone forever.'}
+              Permanently deletes your account. Your email, password, recipes, and all data will be gone forever.
             </p>
             {dangerError && <p className="mb-2 text-xs text-red-400">{dangerError}</p>}
             <div className="flex gap-2">
               <button
                 type="button"
-                onClick={() => void handleDangerAction(confirmAction)}
+                onClick={() => void handleDangerAction('delete')}
                 disabled={dangerLoading}
                 className="flex-1 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-red-500 disabled:opacity-50"
               >
-                {dangerLoading
-                  ? (confirmAction === 'restart' ? 'Restarting…' : 'Deleting…')
-                  : (confirmAction === 'restart' ? 'Yes, restart' : 'Yes, delete everything')}
+                {dangerLoading ? 'Deleting…' : 'Yes, delete everything'}
               </button>
               <button
                 type="button"
@@ -661,11 +645,11 @@ export default function AccountPage() {
           <div className="flex gap-2">
             <button
               type="button"
-              onClick={() => setConfirmAction('restart')}
-              className="flex flex-1 items-center justify-center gap-1.5 rounded-2xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm text-slate-500 hover:border-amber-500/50 hover:text-amber-400"
+              onClick={() => void handleSignOut()}
+              className="flex flex-1 items-center justify-center gap-2 rounded-2xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm text-slate-400 hover:border-slate-600 hover:text-white"
             >
-              <RotateCcw className="h-4 w-4" />
-              Restart account
+              <LogOut className="h-4 w-4" />
+              Sign out
             </button>
             <button
               type="button"
