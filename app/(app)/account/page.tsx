@@ -10,6 +10,7 @@ import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { getSupabaseClient } from '@/lib/supabase/client';
 import { queryKeys } from '@/lib/queryKeys';
 import { AvatarUpload } from '@/components/account/AvatarUpload';
+import { isHead } from '@/lib/roles';
 import { useJoinRequests, useAcceptJoinRequest, useDenyJoinRequest } from '@/hooks/useJoinRequests';
 import { useMyRecipeCookRequests, useApproveRecipeCookRequest, useDenyRecipeCookRequest } from '@/hooks/useRecipeCookRequests';
 import { Avatar } from '@/components/household/MemberList';
@@ -493,8 +494,8 @@ export default function AccountPage() {
           )}
         </div>
 
-        {/* Join requests — owners only */}
-        {membership?.role === 'owner' && membership.household.id && (
+        {/* Join requests — heads only */}
+        {membership?.role && isHead(membership.role) && membership.household.id && (
           <JoinRequestsSection householdId={membership.household.id} />
         )}
 
