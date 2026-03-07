@@ -426,6 +426,12 @@ export default function AccountPage() {
           headers: { authorization: `Bearer ${session?.access_token}` },
         });
         if (!res.ok) throw new Error(await res.text());
+        // User is already deleted server-side — use scope:'local' to clear
+        // local storage without a server round-trip (which would 401)
+        await supabase.auth.signOut({ scope: 'local' });
+        signOut();
+        router.replace('/sign-in');
+        return;
       } else {
         const { error } = await supabase.rpc('reset_account');
         if (error) throw error;
@@ -433,7 +439,7 @@ export default function AccountPage() {
 
       await supabase.auth.signOut();
       signOut();
-      router.push('/sign-in');
+      router.replace('/sign-in');
     } catch {
       setDangerError('Something went wrong. Please try again.');
       setDangerLoading(false);
