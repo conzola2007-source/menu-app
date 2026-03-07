@@ -39,6 +39,8 @@ export async function POST(req: Request) {
   await admin.from('push_subscriptions').delete().eq('user_id', user.id);
   await admin.from('notification_preferences').delete().eq('user_id', user.id);
   await admin.from('suggestions').delete().eq('user_id', user.id);
+  await admin.from('join_requests').delete().eq('user_id', user.id);
+  await admin.from('recipe_add_requests').delete().eq('requested_by', user.id);
   await admin.from('household_members').delete().eq('user_id', user.id);
   await admin.from('recipes').delete().eq('created_by', user.id).eq('is_global', false);
 
