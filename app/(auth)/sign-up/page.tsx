@@ -78,7 +78,7 @@ export default function SignUpPage() {
           <Input
             id="displayName"
             type="text"
-            placeholder="e.g. Yasser"
+            placeholder="e.g. Alex"
             autoComplete="name"
             error={errors.displayName?.message}
             {...register('displayName')}
