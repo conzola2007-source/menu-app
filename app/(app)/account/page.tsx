@@ -440,8 +440,9 @@ export default function AccountPage() {
       await supabase.auth.signOut();
       signOut();
       router.replace('/sign-in');
-    } catch {
-      setDangerError('Something went wrong. Please try again.');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setDangerError(msg || 'Something went wrong. Please try again.');
       setDangerLoading(false);
       setConfirmAction(null);
     }
