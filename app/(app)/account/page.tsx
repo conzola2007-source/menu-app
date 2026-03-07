@@ -416,9 +416,21 @@ export default function AccountPage() {
     setDangerError(null);
     try {
       const supabase = getSupabaseClient();
-      const rpcName = action === 'restart' ? 'restart_account' : 'delete_account';
-      const { error } = await supabase.rpc(rpcName);
-      if (error) throw error;
+
+      if (action === 'delete') {
+        // Use admin API route — GoTrue deletes the user and immediately
+        // invalidates all active sessions (JWTs can't be refreshed after this)
+        const { data: { session } } = await supabase.auth.getSession();
+        const res = await fetch('/api/delete-account', {
+          method: 'POST',
+          headers: { authorization: `Bearer ${session?.access_token}` },
+        });
+        if (!res.ok) throw new Error(await res.text());
+      } else {
+        const { error } = await supabase.rpc('restart_account');
+        if (error) throw error;
+      }
+
       await supabase.auth.signOut();
       signOut();
       router.push('/sign-in');
