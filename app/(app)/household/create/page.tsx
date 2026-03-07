@@ -77,7 +77,7 @@ export default function CreateHouseholdPage() {
 
     const { error: memberError } = await supabase
       .from('household_members')
-      .insert({ household_id: household.id, user_id: user.id, role: 'owner' } as never);
+      .insert({ household_id: household.id, user_id: user.id, role: 'head_of_household', is_creator: true } as never);
 
     if (memberError) {
       console.error('[CreateHousehold] member insert error:', memberError);

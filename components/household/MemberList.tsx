@@ -94,6 +94,14 @@ function formatExpiry(dateStr: string) {
 }
 
 function RoleBadge({ member }: { member: Member }) {
+  if (member.is_creator) {
+    return (
+      <span className="flex items-center gap-1 rounded-full bg-amber-500/20 px-2.5 py-1 text-xs font-medium text-amber-300">
+        <Crown className="h-3 w-3" />
+        Creator
+      </span>
+    );
+  }
   if (isHead(member.role)) {
     return (
       <span className="flex items-center gap-1 rounded-full bg-amber-500/20 px-2.5 py-1 text-xs font-medium text-amber-300">
@@ -155,9 +163,6 @@ export function MemberList({
                 <span className="truncate text-sm font-medium text-white">
                   {member.profile.display_name}
                 </span>
-                {member.is_creator && (
-                  <Crown className="h-3.5 w-3.5 shrink-0 text-amber-400" />
-                )}
                 {isMe && (
                   <span className="rounded-full bg-slate-700 px-1.5 py-0.5 text-xs text-slate-400">
                     you
