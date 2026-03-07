@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Pencil, Clock, ChefHat, Users, AlertTriangle, UtensilsCrossed, Heart, StickyNote, Trash2 } from 'lucide-react';
-import { useRecipeDetail } from '@/hooks/useRecipes';
+import { useRecipeDetail, useDeleteRecipe } from '@/hooks/useRecipes';
 import { useHousehold } from '@/hooks/useHousehold';
 import { useAuthStore } from '@/stores/authStore';
 import { useIngredients } from '@/hooks/useIngredients';
@@ -37,10 +37,12 @@ export default function RecipeDetailPage() {
   const { data: notes = [] } = useRecipeNotes(id ?? null, householdId ?? null);
   const upsertNote = useUpsertRecipeNote();
   const deleteNote = useDeleteRecipeNote();
+  const deleteRecipe = useDeleteRecipe();
 
   // Servings scaler
   const [scaledServings, setScaledServings] = useState<number | null>(null);
   const [noteText, setNoteText] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   if (isLoading) {
     return (
@@ -161,6 +163,35 @@ export default function RecipeDetailPage() {
             >
               <Pencil className="h-4 w-4" />
             </Link>
+          )}
+          {/* Delete */}
+          {canEdit && (
+            confirmDelete ? (
+              <button
+                type="button"
+                onClick={() => {
+                  if (!householdId) return;
+                  deleteRecipe.mutate(
+                    { recipeId: recipe.id, householdId },
+                    { onSuccess: () => router.replace('/recipes') },
+                  );
+                }}
+                disabled={deleteRecipe.isPending}
+                className="flex h-9 items-center gap-1.5 rounded-full bg-red-600/90 px-3 text-xs font-medium text-white backdrop-blur-sm disabled:opacity-50"
+                aria-label="Confirm delete"
+              >
+                {deleteRecipe.isPending ? '…' : 'Delete?'}
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setConfirmDelete(true)}
+                className="flex h-9 w-9 items-center justify-center rounded-full bg-black/30 text-white backdrop-blur-sm"
+                aria-label="Delete recipe"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            )
           )}
         </div>
       </div>

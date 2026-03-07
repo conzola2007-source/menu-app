@@ -3,8 +3,8 @@
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Search, Plus, SlidersHorizontal, X, CheckCircle, Clock3, Link2 } from 'lucide-react';
-import { useRecipes, useHouseholdPool } from '@/hooks/useRecipes';
+import { Search, Plus, SlidersHorizontal, X, CheckCircle, Clock3, Link2, Trash2 } from 'lucide-react';
+import { useRecipes, useHouseholdPool, useDeleteRecipe } from '@/hooks/useRecipes';
 import { useHousehold } from '@/hooks/useHousehold';
 import { useAuthStore } from '@/stores/authStore';
 import { useMyRecipeAddRequests, useSubmitRecipeAddRequest, useAddRecipeToPool } from '@/hooks/useRecipeAddRequests';
@@ -34,6 +34,8 @@ export default function RecipesPage() {
   const { data: myRequests = [] } = useMyRecipeAddRequests(householdId);
   const addToPool = useAddRecipeToPool();
   const submitRequest = useSubmitRecipeAddRequest();
+  const deleteRecipe = useDeleteRecipe();
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   const poolIds = useMemo(() => new Set(poolRecipes.map((r) => r.id)), [poolRecipes]);
   const pendingIds = useMemo(
@@ -343,31 +345,57 @@ export default function RecipesPage() {
                   <div key={recipe.id} className="flex flex-col gap-1">
                     <RecipeCard recipe={recipe} />
                     {isOwn && !recipe.is_global && householdId && (
-                      inPool ? (
-                        <div className="flex items-center gap-1 px-1 text-xs text-green-400">
-                          <CheckCircle className="h-3 w-3" />
-                          In pool
-                        </div>
-                      ) : isPending ? (
-                        <div className="flex items-center gap-1 px-1 text-xs text-amber-400">
-                          <Clock3 className="h-3 w-3" />
-                          Pending
-                        </div>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (currentUserIsHead) {
-                              addToPool.mutate({ householdId, recipeId: recipe.id });
-                            } else {
-                              submitRequest.mutate({ householdId, recipeId: recipe.id });
+                      <div className="flex items-center justify-between px-1">
+                        {inPool ? (
+                          <div className="flex items-center gap-1 text-xs text-green-400">
+                            <CheckCircle className="h-3 w-3" />
+                            In pool
+                          </div>
+                        ) : isPending ? (
+                          <div className="flex items-center gap-1 text-xs text-amber-400">
+                            <Clock3 className="h-3 w-3" />
+                            Pending
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (currentUserIsHead) {
+                                addToPool.mutate({ householdId, recipeId: recipe.id });
+                              } else {
+                                submitRequest.mutate({ householdId, recipeId: recipe.id });
+                              }
+                            }}
+                            className="text-left text-xs text-primary hover:underline"
+                          >
+                            {currentUserIsHead ? '+ Add to pool' : '+ Request to add'}
+                          </button>
+                        )}
+                        {confirmDeleteId === recipe.id ? (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              deleteRecipe.mutate(
+                                { recipeId: recipe.id, householdId },
+                                { onSuccess: () => setConfirmDeleteId(null) },
+                              )
                             }
-                          }}
-                          className="px-1 text-left text-xs text-primary hover:underline"
-                        >
-                          {currentUserIsHead ? '+ Add to pool' : '+ Request to add'}
-                        </button>
-                      )
+                            disabled={deleteRecipe.isPending}
+                            className="text-xs font-medium text-red-400 hover:underline disabled:opacity-50"
+                          >
+                            {deleteRecipe.isPending ? '…' : 'Confirm?'}
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setConfirmDeleteId(recipe.id)}
+                            className="text-slate-600 hover:text-red-400"
+                            aria-label="Delete recipe"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                      </div>
                     )}
                   </div>
                 );

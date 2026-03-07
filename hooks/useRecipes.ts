@@ -279,6 +279,27 @@ export function useCreateRecipe() {
   });
 }
 
+export function useDeleteRecipe() {
+  const qc = useQueryClient();
+  const user = useAuthStore((s) => s.user);
+
+  return useMutation({
+    mutationFn: async ({ recipeId }: { recipeId: string; householdId: string }) => {
+      const supabase = getSupabaseClient();
+      const { error } = await supabase
+        .from('recipes')
+        .delete()
+        .eq('id', recipeId)
+        .eq('created_by', user!.id); // guard: only own recipes
+      if (error) throw error;
+    },
+    onSuccess: (_, { householdId }) => {
+      qc.invalidateQueries({ queryKey: queryKeys.recipes.all(user?.id ?? '') });
+      qc.invalidateQueries({ queryKey: queryKeys.householdPool.list(householdId) });
+    },
+  });
+}
+
 export function useUpdateRecipe(recipeId: string) {
   const qc = useQueryClient();
 
