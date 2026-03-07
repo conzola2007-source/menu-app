@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Pencil, Check, X, LogOut, ChefHat, Plus, KeyRound, Mail, Bell } from 'lucide-react';
+import { Pencil, Check, X, LogOut, ChefHat, Plus, KeyRound, Mail, Bell, RotateCcw } from 'lucide-react';
 import { useHousehold } from '@/hooks/useHousehold';
 import { useAuthStore } from '@/stores/authStore';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
@@ -353,7 +353,7 @@ export default function AccountPage() {
   const [passwordLoading, setPasswordLoading] = useState(false);
   const [passwordMsg, setPasswordMsg] = useState<string | null>(null);
 
-  const [confirmAction, setConfirmAction] = useState<null | 'delete'>(null);
+  const [confirmAction, setConfirmAction] = useState<null | 'reset' | 'delete'>(null);
   const [dangerLoading, setDangerLoading] = useState(false);
   const [dangerError, setDangerError] = useState<string | null>(null);
 
@@ -410,8 +410,8 @@ export default function AccountPage() {
     }
   }
 
-  // ── Restart / Delete account ──────────────────────────────────────────────────
-  async function handleDangerAction(action: 'restart' | 'delete') {
+  // ── Reset / Delete account ────────────────────────────────────────────────────
+  async function handleDangerAction(action: 'reset' | 'delete') {
     setDangerLoading(true);
     setDangerError(null);
     try {
@@ -427,7 +427,7 @@ export default function AccountPage() {
         });
         if (!res.ok) throw new Error(await res.text());
       } else {
-        const { error } = await supabase.rpc('restart_account');
+        const { error } = await supabase.rpc('reset_account');
         if (error) throw error;
       }
 
@@ -614,22 +614,38 @@ export default function AccountPage() {
           {user && <MyRecipes userId={user.id} />}
         </section>
 
-        {/* Sign out + Delete account */}
-        {confirmAction === 'delete' ? (
+        {/* Sign out */}
+        <button
+          type="button"
+          onClick={() => void handleSignOut()}
+          className="flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm text-slate-400 hover:border-slate-600 hover:text-white"
+        >
+          <LogOut className="h-4 w-4" />
+          Sign out
+        </button>
+
+        {/* Reset / Delete account */}
+        {confirmAction ? (
           <section className="rounded-2xl border border-red-500/30 bg-red-500/5 p-4">
-            <p className="mb-2 text-sm font-semibold text-red-400">Delete account?</p>
+            <p className="mb-2 text-sm font-semibold text-red-400">
+              {confirmAction === 'reset' ? 'Reset account?' : 'Delete account?'}
+            </p>
             <p className="mb-3 text-xs text-slate-400">
-              Permanently deletes your account. Your email, password, recipes, and all data will be gone forever.
+              {confirmAction === 'reset'
+                ? 'Removes you from all households and deletes your data. Your email and password are kept so you can sign back in.'
+                : 'Permanently deletes your account. Your email, password, and all data will be gone forever.'}
             </p>
             {dangerError && <p className="mb-2 text-xs text-red-400">{dangerError}</p>}
             <div className="flex gap-2">
               <button
                 type="button"
-                onClick={() => void handleDangerAction('delete')}
+                onClick={() => void handleDangerAction(confirmAction)}
                 disabled={dangerLoading}
                 className="flex-1 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-red-500 disabled:opacity-50"
               >
-                {dangerLoading ? 'Deleting…' : 'Yes, delete everything'}
+                {dangerLoading
+                  ? (confirmAction === 'reset' ? 'Resetting…' : 'Deleting…')
+                  : (confirmAction === 'reset' ? 'Yes, reset' : 'Yes, delete everything')}
               </button>
               <button
                 type="button"
@@ -645,11 +661,11 @@ export default function AccountPage() {
           <div className="flex gap-2">
             <button
               type="button"
-              onClick={() => void handleSignOut()}
-              className="flex flex-1 items-center justify-center gap-2 rounded-2xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm text-slate-400 hover:border-slate-600 hover:text-white"
+              onClick={() => setConfirmAction('reset')}
+              className="flex flex-1 items-center justify-center gap-1.5 rounded-2xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm text-slate-500 hover:border-amber-500/50 hover:text-amber-400"
             >
-              <LogOut className="h-4 w-4" />
-              Sign out
+              <RotateCcw className="h-4 w-4" />
+              Reset account
             </button>
             <button
               type="button"
