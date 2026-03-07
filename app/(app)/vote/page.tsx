@@ -64,9 +64,9 @@ export default function VotePage() {
     }
   }, [isRevoteMode, router]);
 
-  // Navigate to /plan only once the queue has been loaded AND then drained.
-  // revoteQueueWasLoaded.current prevents firing when isRevoteMode just
-  // became true and localQueue is still [] from the previous vote session.
+  // Once revote finishes (queue drained), clear the session flag so navigating
+  // away and back doesn't re-enter revote mode. No auto-redirect — let the
+  // user see VoteResults and click "Allocate to week" themselves.
   useEffect(() => {
     if (
       isRevoteMode &&
@@ -75,9 +75,8 @@ export default function VotePage() {
       revoteQueueWasLoaded.current
     ) {
       sessionStorage.removeItem('revote_in_progress');
-      router.replace('/plan');
     }
-  }, [isRevoteMode, localQueue, router]);
+  }, [isRevoteMode, localQueue]);
 
 
   const isLoading = householdLoading || voteLoading;
@@ -148,10 +147,8 @@ export default function VotePage() {
 
   // ── Results view ──────────────────────────────────────────────────────────
   if (allVotedByMe) {
-    // Revote just finished — redirect imminent, show nothing to avoid flash.
-    if (isRevoteMode) return null;
-    // Normal vote done — show results screen.
-    // "Allocate to week" button appears in VoteResults once all members finish.
+    // Show VoteResults for both normal vote and revote — user clicks
+    // "Allocate to week" themselves instead of being auto-redirected.
     return (
       <div className="min-h-screen bg-slate-900 pb-24 px-4 pt-4">
         <VoteResults
