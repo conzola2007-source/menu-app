@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { Pencil, Check, X, LogOut, ChefHat, Plus, KeyRound, Mail, Bell, RotateCcw } from 'lucide-react';
 import { useHousehold } from '@/hooks/useHousehold';
 import { useAuthStore } from '@/stores/authStore';
-import { useQueryClient, useQuery } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { getSupabaseClient } from '@/lib/supabase/client';
 import { queryKeys } from '@/lib/queryKeys';
 import { AvatarUpload } from '@/components/account/AvatarUpload';
@@ -21,25 +21,12 @@ import {
   useDisablePush,
 } from '@/hooks/usePushSubscription';
 import { useNotificationPreferences, useUpdateNotificationPreferences } from '@/hooks/useNotificationPreferences';
+import { useRecipes } from '@/hooks/useRecipes';
 
 // ─── My recipes mini-list ─────────────────────────────────────────────────────
 
-function MyRecipes({ userId }: { userId: string }) {
-  const { data: recipes, isLoading } = useQuery({
-    queryKey: ['my-recipes', userId],
-    queryFn: async () => {
-      const supabase = getSupabaseClient();
-      const { data, error } = await supabase
-        .from('recipes')
-        .select('id, title, emoji, bg_color, cuisine')
-        .eq('created_by', userId)
-        .order('created_at', { ascending: false })
-        .limit(10);
-      if (error) throw error;
-      return data ?? [];
-    },
-    enabled: !!userId,
-  });
+function MyRecipes({ userId: _userId }: { userId: string }) {
+  const { data: recipes, isLoading } = useRecipes();
 
   if (isLoading) {
     return (

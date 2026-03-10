@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Settings, UserPlus, LogIn, ChevronDown, Check, PlusCircle, Bell } from 'lucide-react';
 import { useHousehold, useHouseholds } from '@/hooks/useHousehold';
-import { useRecipes } from '@/hooks/useRecipes';
 import { useAuthStore } from '@/stores/authStore';
 import { useRemoveMember } from '@/hooks/useJoinRequests';
 import { useJoinRequests } from '@/hooks/useJoinRequests';
@@ -20,20 +19,18 @@ import { VisitInviteSheet } from '@/components/household/VisitInviteSheet';
 import { Sheet } from '@/components/ui/Sheet';
 import { isHead } from '@/lib/roles';
 
-type Tab = 'analytics' | 'household' | 'ingredients' | 'recipes';
+type Tab = 'analytics' | 'household' | 'ingredients';
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'analytics',   label: 'Analytics' },
   { id: 'household',   label: 'Household' },
   { id: 'ingredients', label: 'Ingredients' },
-  { id: 'recipes',     label: 'Recipes' },
 ];
 
 export default function HouseholdPage() {
   const router = useRouter();
   const { data: membership, isLoading } = useHousehold();
   const { data: allHouseholds = [] }    = useHouseholds();
-  const { data: recipes = [] }          = useRecipes();
   const user               = useAuthStore((s) => s.user);
   const setActiveHousehold = useAuthStore((s) => s.setActiveHousehold);
   const removeMember       = useRemoveMember();
@@ -406,46 +403,6 @@ export default function HouseholdPage() {
           <IngredientList householdId={membership.household.id} />
         )}
 
-        {/* ── Recipes ─────────────────────────────────────────────────────── */}
-        {activeTab === 'recipes' && (
-          recipes.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-20 text-center">
-              <span className="text-5xl">🍽️</span>
-              <p className="mt-3 font-medium text-white">No recipes yet</p>
-              <Link
-                href="/recipes/new"
-                className="mt-3 rounded-full bg-primary px-4 py-2 text-sm font-medium text-white"
-              >
-                Add a recipe
-              </Link>
-            </div>
-          ) : (
-            <section>
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Recipes · {recipes.length}
-              </p>
-              <div className="grid grid-cols-2 gap-2">
-                {recipes.map((r) => (
-                  <Link
-                    key={r.id}
-                    href={`/recipes/${r.id}`}
-                    className="flex items-center gap-2 rounded-2xl border border-slate-800 bg-slate-900 px-3 py-2.5"
-                  >
-                    <span
-                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-lg"
-                      style={{ backgroundColor: r.bg_color }}
-                    >
-                      {r.emoji}
-                    </span>
-                    <span className="flex-1 truncate text-xs font-medium text-white">
-                      {r.title}
-                    </span>
-                  </Link>
-                ))}
-              </div>
-            </section>
-          )
-        )}
       </div>
 
       {/* ── Member recipes sheet ─────────────────────────────────────────────── */}
