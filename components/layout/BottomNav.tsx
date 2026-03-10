@@ -6,15 +6,25 @@ import { Users, CalendarDays, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/stores/authStore';
 import { useMyRecipeCookRequests } from '@/hooks/useRecipeCookRequests';
+import { useHousehold } from '@/hooks/useHousehold';
+import { useJoinRequests } from '@/hooks/useJoinRequests';
+import { isHead } from '@/lib/roles';
 
 function AccountIcon({ size, strokeWidth }: { size: number; strokeWidth: number }) {
   const userId = useAuthStore((s) => s.user?.id);
-  const { data: requests = [] } = useMyRecipeCookRequests(userId);
+  const { data: membership } = useHousehold();
+  const { data: cookRequests = [] } = useMyRecipeCookRequests(userId);
+  const { data: joinRequests = [] } = useJoinRequests(
+    membership && isHead(membership.role) ? membership.household.id : undefined,
+  );
+  const total = cookRequests.length + joinRequests.length;
   return (
     <span className="relative">
       <User size={size} strokeWidth={strokeWidth} />
-      {requests.length > 0 && (
-        <span className="absolute -right-1 -top-1 flex h-2 w-2 rounded-full bg-red-500" />
+      {total > 0 && (
+        <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white">
+          {total > 9 ? '9+' : total}
+        </span>
       )}
     </span>
   );
