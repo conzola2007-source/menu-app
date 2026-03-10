@@ -41,6 +41,27 @@ export async function POST(req: Request) {
   await admin.from('suggestions').delete().eq('user_id', user.id);
   await admin.from('join_requests').delete().eq('user_id', user.id);
   await admin.from('recipe_add_requests').delete().eq('requested_by', user.id);
+
+  // Delete households owned by this user where they are the sole member.
+  // Must happen before removing from household_members so the NOT EXISTS check works.
+  const { data: ownedHouseholds } = await admin
+    .from('households')
+    .select('id')
+    .eq('owner_id', user.id);
+  if (ownedHouseholds && ownedHouseholds.length > 0) {
+    const allIds = ownedHouseholds.map((h) => h.id);
+    const { data: otherMembers } = await admin
+      .from('household_members')
+      .select('household_id')
+      .in('household_id', allIds)
+      .neq('user_id', user.id);
+    const hasOthers = new Set(otherMembers?.map((m) => m.household_id) ?? []);
+    const toDelete = allIds.filter((id) => !hasOthers.has(id));
+    if (toDelete.length > 0) {
+      await admin.from('households').delete().in('id', toDelete);
+    }
+  }
+
   await admin.from('household_members').delete().eq('user_id', user.id);
   await admin.from('recipes').delete().eq('created_by', user.id).eq('is_global', false);
 
