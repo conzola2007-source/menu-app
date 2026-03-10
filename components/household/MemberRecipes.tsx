@@ -37,10 +37,21 @@ export function MemberRecipes({ isOpen, member, currentUserId, householdId, onCl
     queryKey: ['member-recipes', member?.user_id ?? ''],
     queryFn: async () => {
       const supabase = getSupabaseClient();
+      // Get their saved global recipe IDs from onboarding
+      const { data: savedRows } = await supabase
+        .from('user_saved_global_recipes')
+        .select('recipe_id')
+        .eq('user_id', member!.user_id);
+      const savedIds = (savedRows ?? []).map((r: { recipe_id: string }) => r.recipe_id);
+
+      const filter = savedIds.length > 0
+        ? `created_by.eq.${member!.user_id},id.in.(${savedIds.join(',')})`
+        : `created_by.eq.${member!.user_id}`;
+
       const { data, error } = await supabase
         .from('recipes')
         .select('id, title, emoji, bg_color, cuisine, created_by')
-        .eq('created_by', member!.user_id)
+        .or(filter)
         .order('created_at', { ascending: false });
       if (error) throw error;
       return (data ?? []) as MiniRecipe[];

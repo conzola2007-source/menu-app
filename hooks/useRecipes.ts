@@ -121,27 +121,33 @@ export function useHouseholdPool(householdId: string | null) {
     queryFn: async (): Promise<Recipe[]> => {
       const supabase = getSupabaseClient();
 
-      // Get recipe IDs explicitly added to this household pool
-      const { data: poolRows, error: poolErr } = await supabase
-        .from('household_recipes')
-        .select('recipe_id')
+      // Pool = union of all household members' personal recipe collections
+      const { data: memberRows } = await supabase
+        .from('household_members')
+        .select('user_id')
         .eq('household_id', householdId!);
-      if (poolErr) throw poolErr;
+      const memberIds = (memberRows ?? []).map(
+        (r) => (r as unknown as { user_id: string }).user_id,
+      );
+      if (memberIds.length === 0) return [];
 
-      const poolIds = (poolRows ?? []).map(
+      const { data: savedRows } = await supabase
+        .from('user_saved_global_recipes')
+        .select('recipe_id')
+        .in('user_id', memberIds);
+      const savedIds = (savedRows ?? []).map(
         (r) => (r as unknown as { recipe_id: string }).recipe_id,
       );
 
-      // Empty pool → no recipes
-      if (poolIds.length === 0) return [];
+      const filterParts: string[] = [`created_by.in.(${memberIds.join(',')})`];
+      if (savedIds.length > 0) filterParts.push(`id.in.(${savedIds.join(',')})`);
 
-      // Fetch only the explicitly pooled recipes
       const { data, error } = await supabase
         .from('recipes')
         .select(
           'id, title, description, cuisine, carb_type, protein_type, dietary_tags, prep_time_min, cook_time_min, servings, estimated_price, emoji, bg_color, advance_prep_days, advance_prep_note, is_global, household_id, created_by, created_at, updated_at',
         )
-        .in('id', poolIds)
+        .or(filterParts.join(','))
         .order('created_at', { ascending: true });
       if (error) throw error;
       return (data ?? []) as unknown as Recipe[];

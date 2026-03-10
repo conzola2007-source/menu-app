@@ -3,12 +3,9 @@
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Search, Plus, SlidersHorizontal, X, CheckCircle, Clock3, Link2, Trash2 } from 'lucide-react';
-import { useRecipes, useHouseholdPool, useDeleteRecipe } from '@/hooks/useRecipes';
-import { useHousehold } from '@/hooks/useHousehold';
+import { Search, Plus, SlidersHorizontal, X, Link2, Trash2 } from 'lucide-react';
+import { useRecipes, useDeleteRecipe } from '@/hooks/useRecipes';
 import { useAuthStore } from '@/stores/authStore';
-import { useMyRecipeAddRequests, useSubmitRecipeAddRequest, useAddRecipeToPool } from '@/hooks/useRecipeAddRequests';
-import { isHead } from '@/lib/roles';
 import { RecipeCard } from '@/components/recipe/RecipeCard';
 import { ImportRecipeSheet } from '@/components/recipe/ImportRecipeSheet';
 import {
@@ -24,24 +21,11 @@ type SourceFilter = 'all' | 'global' | 'mine';
 export default function RecipesPage() {
   const router = useRouter();
   const { data: recipes = [], isLoading, error } = useRecipes();
-  const { data: membership } = useHousehold();
   const user = useAuthStore((s) => s.user);
-  const householdId = membership?.household?.id ?? null;
-  const currentUserIsHead = membership ? isHead(membership.role) : false;
   const [showImport, setShowImport] = useState(false);
 
-  const { data: poolRecipes = [] } = useHouseholdPool(householdId);
-  const { data: myRequests = [] } = useMyRecipeAddRequests(householdId);
-  const addToPool = useAddRecipeToPool();
-  const submitRequest = useSubmitRecipeAddRequest();
   const deleteRecipe = useDeleteRecipe();
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
-
-  const poolIds = useMemo(() => new Set(poolRecipes.map((r) => r.id)), [poolRecipes]);
-  const pendingIds = useMemo(
-    () => new Set(myRequests.filter((r) => r.status === 'pending').map((r) => r.recipe_id)),
-    [myRequests],
-  );
 
   // ── Filter state ──
   const [search, setSearch] = useState('');
@@ -339,44 +323,17 @@ export default function RecipesPage() {
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
               {filtered.map((recipe) => {
                 const isOwn = recipe.created_by === user?.id;
-                const inPool = poolIds.has(recipe.id);
-                const isPending = pendingIds.has(recipe.id);
                 return (
                   <div key={recipe.id} className="flex flex-col gap-1">
                     <RecipeCard recipe={recipe} />
-                    {isOwn && !recipe.is_global && householdId && (
-                      <div className="flex items-center justify-between px-1">
-                        {inPool ? (
-                          <div className="flex items-center gap-1 text-xs text-green-400">
-                            <CheckCircle className="h-3 w-3" />
-                            In pool
-                          </div>
-                        ) : isPending ? (
-                          <div className="flex items-center gap-1 text-xs text-amber-400">
-                            <Clock3 className="h-3 w-3" />
-                            Pending
-                          </div>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (currentUserIsHead) {
-                                addToPool.mutate({ householdId, recipeId: recipe.id });
-                              } else {
-                                submitRequest.mutate({ householdId, recipeId: recipe.id });
-                              }
-                            }}
-                            className="text-left text-xs text-primary hover:underline"
-                          >
-                            {currentUserIsHead ? '+ Add to pool' : '+ Request to add'}
-                          </button>
-                        )}
+                    {isOwn && !recipe.is_global && (
+                      <div className="flex items-center justify-end px-1">
                         {confirmDeleteId === recipe.id ? (
                           <button
                             type="button"
                             onClick={() =>
                               deleteRecipe.mutate(
-                                { recipeId: recipe.id, householdId },
+                                { recipeId: recipe.id, householdId: '' },
                                 { onSuccess: () => setConfirmDeleteId(null) },
                               )
                             }

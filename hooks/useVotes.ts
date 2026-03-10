@@ -121,16 +121,23 @@ export function useVoteData() {
       const supabase = getSupabaseClient();
       const userId = user!.id;
 
-      // 1. All recipes in the household pool + global
-      const { data: poolRows } = await supabase
-        .from('household_recipes')
-        .select('recipe_id')
+      // 1. All recipes from household members' personal collections
+      const { data: memberRows } = await supabase
+        .from('household_members')
+        .select('user_id')
         .eq('household_id', householdId);
-      const poolIds = (poolRows ?? []).map((r) => (r as unknown as { recipe_id: string }).recipe_id);
+      const memberIds = (memberRows ?? []).map((r) => (r as unknown as { user_id: string }).user_id);
 
-      const recipeFilter = poolIds.length > 0
-        ? `is_global.eq.true,id.in.(${poolIds.join(',')})`
-        : 'is_global.eq.true';
+      const { data: savedRows } = await supabase
+        .from('user_saved_global_recipes')
+        .select('recipe_id')
+        .in('user_id', memberIds);
+      const savedIds = (savedRows ?? []).map((r) => (r as unknown as { recipe_id: string }).recipe_id);
+
+      const filterParts: string[] = [];
+      if (memberIds.length > 0) filterParts.push(`created_by.in.(${memberIds.join(',')})`);
+      if (savedIds.length > 0) filterParts.push(`id.in.(${savedIds.join(',')})`);
+      const recipeFilter = filterParts.join(',') || 'id.eq.none';
 
       const { data: recipesRaw, error: recipeError } = await supabase
         .from('recipes')
