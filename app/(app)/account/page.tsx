@@ -82,143 +82,132 @@ function MyRecipes({ userId: _userId }: { userId: string }) {
   );
 }
 
-// ─── Join requests section (owner only) ───────────────────────────────────────
+// ─── Unified notifications section ────────────────────────────────────────────
 
-function JoinRequestsSection({ householdId }: { householdId: string }) {
-  const { data: requests = [], isLoading } = useJoinRequests(householdId);
-  const accept = useAcceptJoinRequest();
-  const deny = useDenyJoinRequest();
-  const [processingId, setProcessingId] = useState<string | null>(null);
-
-  if (isLoading || requests.length === 0) return null;
-
-  async function handleAccept(requestId: string) {
-    setProcessingId(requestId);
-    try { await accept.mutateAsync({ requestId, assignRole: 'member' }); } finally { setProcessingId(null); }
-  }
-
-  async function handleDeny(requestId: string) {
-    setProcessingId(requestId);
-    try { await deny.mutateAsync(requestId); } finally { setProcessingId(null); }
-  }
-
-  return (
-    <section className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-4">
-      <div className="mb-3 flex items-center gap-2">
-        <Bell className="h-4 w-4 text-amber-400" />
-        <p className="text-sm font-semibold text-amber-300">
-          Join requests · {requests.length}
-        </p>
-      </div>
-      <div className="flex flex-col gap-3">
-        {requests.map((req) => {
-          const name = req.profile?.display_name ?? 'Someone';
-          const isProcessing = processingId === req.id;
-          return (
-            <div key={req.id} className="flex items-center gap-3">
-              <Avatar name={name} avatarUrl={req.profile?.avatar_url} size="sm" />
-              <div className="flex-1 min-w-0">
-                <p className="truncate text-sm font-medium text-white">{name}</p>
-                <p className="text-xs text-slate-500">wants to join your household</p>
-              </div>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => void handleAccept(req.id)}
-                  disabled={isProcessing}
-                  className="flex h-7 w-7 items-center justify-center rounded-full bg-green-500/20 text-green-400 hover:bg-green-500/30 disabled:opacity-40"
-                >
-                  <Check className="h-3.5 w-3.5" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => void handleDeny(req.id)}
-                  disabled={isProcessing}
-                  className="flex h-7 w-7 items-center justify-center rounded-full bg-red-500/20 text-red-400 hover:bg-red-500/30 disabled:opacity-40"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </section>
+function NotificationsSection({ userId, householdId, isUserHead }: { userId: string; householdId: string | null; isUserHead: boolean }) {
+  const { data: joinRequests = [], isLoading: joinLoading } = useJoinRequests(
+    isUserHead && householdId ? householdId : undefined,
   );
-}
-
-// ─── Recipe cook request inbox ─────────────────────────────────────────────────
-
-function RecipeCookRequestsSection({ userId }: { userId: string }) {
-  const { data: requests = [], isLoading } = useMyRecipeCookRequests(userId);
-  const approve = useApproveRecipeCookRequest();
-  const deny = useDenyRecipeCookRequest();
+  const { data: cookRequests = [], isLoading: cookLoading } = useMyRecipeCookRequests(userId);
+  const acceptJoin = useAcceptJoinRequest();
+  const denyJoin = useDenyJoinRequest();
+  const approveCook = useApproveRecipeCookRequest();
+  const denyCook = useDenyRecipeCookRequest();
   const [processingId, setProcessingId] = useState<string | null>(null);
 
-  if (isLoading || requests.length === 0) return null;
+  const total = joinRequests.length + cookRequests.length;
+
+  if (joinLoading || cookLoading) return null;
+  if (total === 0) return null;
 
   return (
-    <section className="rounded-2xl border border-violet-500/30 bg-violet-500/5 p-4">
-      <div className="mb-3 flex items-center gap-2">
-        <ChefHat className="h-4 w-4 text-violet-400" />
-        <p className="text-sm font-semibold text-violet-300">
-          Recipe requests · {requests.length}
-        </p>
+    <section className="rounded-2xl border border-slate-700 bg-slate-900">
+      {/* Header */}
+      <div className="flex items-center gap-2 px-4 pt-4 pb-3">
+        <Bell className="h-4 w-4 text-primary" />
+        <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Notifications</p>
+        <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-bold text-white">
+          {total}
+        </span>
       </div>
-      <div className="flex flex-col gap-3">
-        {requests.map((req) => {
-          const requesterName = req.requester_profile?.display_name ?? 'Someone';
-          const isProcessing = processingId === req.id;
-          return (
-            <div key={req.id} className="flex items-center gap-3">
-              <Avatar name={requesterName} avatarUrl={req.requester_profile?.avatar_url} size="sm" />
-              <div className="flex-1 min-w-0">
-                <p className="truncate text-sm font-medium text-white">{requesterName}</p>
-                <p className="truncate text-xs text-slate-500">
-                  wants a copy of {req.recipe?.emoji} {req.recipe?.title}
-                </p>
-              </div>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setProcessingId(req.id);
-                    approve.mutate(
-                      { requestId: req.id, recipeId: req.recipe_id, requesterId: req.requester_id, ownerId: req.owner_id },
-                      { onSettled: () => setProcessingId(null) },
-                    );
-                  }}
-                  disabled={isProcessing}
-                  className="flex h-7 w-7 items-center justify-center rounded-full bg-green-500/20 text-green-400 hover:bg-green-500/30 disabled:opacity-40"
-                >
-                  <Check className="h-3.5 w-3.5" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setProcessingId(req.id);
-                    deny.mutate(
-                      { requestId: req.id, ownerId: req.owner_id },
-                      { onSettled: () => setProcessingId(null) },
-                    );
-                  }}
-                  disabled={isProcessing}
-                  className="flex h-7 w-7 items-center justify-center rounded-full bg-red-500/20 text-red-400 hover:bg-red-500/30 disabled:opacity-40"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              </div>
+
+      {/* Join requests */}
+      {joinRequests.map((req) => {
+        const name = req.profile?.display_name ?? 'Someone';
+        const isProcessing = processingId === req.id;
+        return (
+          <div key={req.id} className="flex items-center gap-3 border-t border-slate-800 px-4 py-3">
+            <Avatar name={name} avatarUrl={req.profile?.avatar_url} size="sm" />
+            <div className="flex-1 min-w-0">
+              <p className="truncate text-sm font-medium text-white">{name}</p>
+              <p className="text-xs text-slate-500">wants to join your household</p>
             </div>
-          );
-        })}
-      </div>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setProcessingId(req.id);
+                  void acceptJoin.mutateAsync({ requestId: req.id, assignRole: 'member' })
+                    .finally(() => setProcessingId(null));
+                }}
+                disabled={isProcessing}
+                className="flex h-7 w-7 items-center justify-center rounded-full bg-green-500/20 text-green-400 hover:bg-green-500/30 disabled:opacity-40"
+                title="Accept"
+              >
+                <Check className="h-3.5 w-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setProcessingId(req.id);
+                  void denyJoin.mutateAsync(req.id).finally(() => setProcessingId(null));
+                }}
+                disabled={isProcessing}
+                className="flex h-7 w-7 items-center justify-center rounded-full bg-red-500/20 text-red-400 hover:bg-red-500/30 disabled:opacity-40"
+                title="Deny"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          </div>
+        );
+      })}
+
+      {/* Recipe cook requests */}
+      {cookRequests.map((req) => {
+        const requesterName = req.requester_profile?.display_name ?? 'Someone';
+        const isProcessing = processingId === req.id;
+        return (
+          <div key={req.id} className="flex items-center gap-3 border-t border-slate-800 px-4 py-3">
+            <Avatar name={requesterName} avatarUrl={req.requester_profile?.avatar_url} size="sm" />
+            <div className="flex-1 min-w-0">
+              <p className="truncate text-sm font-medium text-white">{requesterName}</p>
+              <p className="truncate text-xs text-slate-500">
+                wants a copy of {req.recipe?.emoji} {req.recipe?.title}
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setProcessingId(req.id);
+                  approveCook.mutate(
+                    { requestId: req.id, recipeId: req.recipe_id, requesterId: req.requester_id, ownerId: req.owner_id },
+                    { onSettled: () => setProcessingId(null) },
+                  );
+                }}
+                disabled={isProcessing}
+                className="flex h-7 w-7 items-center justify-center rounded-full bg-green-500/20 text-green-400 hover:bg-green-500/30 disabled:opacity-40"
+                title="Approve"
+              >
+                <Check className="h-3.5 w-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setProcessingId(req.id);
+                  denyCook.mutate(
+                    { requestId: req.id, ownerId: req.owner_id },
+                    { onSettled: () => setProcessingId(null) },
+                  );
+                }}
+                disabled={isProcessing}
+                className="flex h-7 w-7 items-center justify-center rounded-full bg-red-500/20 text-red-400 hover:bg-red-500/30 disabled:opacity-40"
+                title="Deny"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          </div>
+        );
+      })}
     </section>
   );
 }
 
 // ─── Notification preferences section ─────────────────────────────────────────
 
-function NotificationsSection({ userId }: { userId: string }) {
+function PushNotificationsSection({ userId }: { userId: string }) {
   const { data: subscription, isLoading: subLoading } = usePushSubscription();
   const enablePush = useEnablePush();
   const disablePush = useDisablePush();
@@ -523,13 +512,14 @@ export default function AccountPage() {
           )}
         </div>
 
-        {/* Join requests — heads only */}
-        {membership?.role && isHead(membership.role) && membership.household.id && (
-          <JoinRequestsSection householdId={membership.household.id} />
+        {/* Unified notifications (join requests + cook requests) */}
+        {user && (
+          <NotificationsSection
+            userId={user.id}
+            householdId={membership?.household.id ?? null}
+            isUserHead={!!(membership?.role && isHead(membership.role))}
+          />
         )}
-
-        {/* Recipe cook requests inbox */}
-        {user && <RecipeCookRequestsSection userId={user.id} />}
 
         {/* Security */}
         <section className="rounded-2xl border border-slate-800 bg-slate-900">
@@ -590,8 +580,8 @@ export default function AccountPage() {
           </div>
         </section>
 
-        {/* Notifications */}
-        {user && <NotificationsSection userId={user.id} />}
+        {/* Push notification preferences */}
+        {user && <PushNotificationsSection userId={user.id} />}
 
         {/* My Recipes */}
         <section>
