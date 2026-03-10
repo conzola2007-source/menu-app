@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getSupabaseClient } from '@/lib/supabase/client';
 import { useAuthStore } from '@/stores/authStore';
@@ -20,6 +21,24 @@ export interface JoinRequest {
 // ── useJoinRequests — pending requests for a household (owner only) ───────────
 
 export function useJoinRequests(householdId: string | undefined) {
+  const qc = useQueryClient();
+
+  useEffect(() => {
+    if (!householdId) return;
+    const supabase = getSupabaseClient();
+    const channel = supabase
+      .channel(`join_requests:${householdId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'join_requests', filter: `household_id=eq.${householdId}` },
+        () => {
+          void qc.invalidateQueries({ queryKey: queryKeys.joinRequests.list(householdId) });
+        },
+      )
+      .subscribe();
+    return () => { void supabase.removeChannel(channel); };
+  }, [householdId, qc]);
+
   return useQuery({
     queryKey: queryKeys.joinRequests.list(householdId ?? ''),
     enabled: !!householdId,

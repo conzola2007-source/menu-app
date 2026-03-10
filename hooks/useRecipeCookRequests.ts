@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getSupabaseClient } from '@/lib/supabase/client';
 import { queryKeys } from '@/lib/queryKeys';
@@ -20,6 +21,24 @@ export interface RecipeCookRequest {
 // ─── useMyRecipeCookRequests — pending requests for recipes I own ─────────────
 
 export function useMyRecipeCookRequests(userId: string | undefined) {
+  const qc = useQueryClient();
+
+  useEffect(() => {
+    if (!userId) return;
+    const supabase = getSupabaseClient();
+    const channel = supabase
+      .channel(`recipe_cook_requests:${userId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'recipe_cook_requests', filter: `owner_id=eq.${userId}` },
+        () => {
+          void qc.invalidateQueries({ queryKey: queryKeys.recipeCookRequests.mine(userId) });
+        },
+      )
+      .subscribe();
+    return () => { void supabase.removeChannel(channel); };
+  }, [userId, qc]);
+
   return useQuery({
     queryKey: queryKeys.recipeCookRequests.mine(userId ?? ''),
     enabled: !!userId,
